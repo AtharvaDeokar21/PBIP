@@ -43,5 +43,5 @@ class SecurityEvent(UUIDPrimaryKeyMixin, Base):
     device_info: Mapped[str | None] = mapped_column(String(500))
     location: Mapped[str | None] = mapped_column(String(200))
     severity: Mapped[str] = mapped_column(String(30), default="INFO", nullable=False)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

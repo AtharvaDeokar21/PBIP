@@ -17,7 +17,7 @@ class FraudEvent(UUIDPrimaryKeyMixin, Base):
     risk_score: Mapped[float] = mapped_column(Numeric(7, 4), nullable=False)
     severity: Mapped[str] = mapped_column(String(30), nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
-    metadata: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
+    event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, nullable=False)
     detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True, nullable=False)
 
 
