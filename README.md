@@ -1,6 +1,12 @@
-# PBIP - Personal Banking Intelligence Platform
+# Credora - Personal Banking Intelligence Platform
 
 Industry-aligned final-year software engineering capstone project.
+
+## Customer frontend
+
+The Next.js frontend now includes a purple-and-white landing page and a customer portal sample. See [frontend setup](frontend/README.md), the [shared feature tracker](docs/FRONTEND_FEATURE_TRACKER.md), and the [design system](docs/FRONTEND_DESIGN_SYSTEM.md).
+
+Run `npm install` and `npm run dev` from `frontend/`, then open http://127.0.0.1:3000. The sample uses sample data; authentication, live banking integrations and the internal portal remain tracked separately.
 
 ## Current foundation
 
