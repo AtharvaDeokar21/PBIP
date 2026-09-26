@@ -1,12 +1,6 @@
-# Credora - Personal Banking Intelligence Platform
+# Credora- Personal Banking Intelligence Platform
 
 Industry-aligned final-year software engineering capstone project.
-
-## Customer frontend
-
-The Next.js frontend now includes a purple-and-white landing page and a customer portal sample. See [frontend setup](frontend/README.md), the [shared feature tracker](docs/FRONTEND_FEATURE_TRACKER.md), and the [design system](docs/FRONTEND_DESIGN_SYSTEM.md).
-
-Run `npm install` and `npm run dev` from `frontend/`, then open http://127.0.0.1:3000. The sample uses sample data; authentication, live banking integrations and the internal portal remain tracked separately.
 
 ## Current foundation
 
@@ -20,7 +14,7 @@ Run `npm install` and `npm run dev` from `frontend/`, then open http://127.0.0.1
 
 ## Backend setup
 
-```bash
+```powershell
 cd backend
 python -m venv .venv
 # Windows PowerShell
@@ -33,7 +27,7 @@ Fill `DATABASE_URL` and `JWT_SECRET_KEY` in `.env`.
 
 Run:
 
-```bash
+```powershell
 uvicorn app.main:app --reload
 ```
 
@@ -43,17 +37,18 @@ Open `http://localhost:8000/docs`.
 
 From `backend/`:
 
-```bash
+```powershell
 alembic revision --autogenerate -m "initial schema"
 alembic upgrade head
 ```
+
+The initial migration already exists in this repository; for setup, run only `alembic upgrade head`. Generate a new revision when intentionally changing the schema.
 
 Do not manually create production tables in the Supabase dashboard. The migration files are the source of truth.
 
 ## Team rule
 
 The database schema and API contracts are shared contracts. Changes to shared models or API response shapes require a PR and review from the relevant domain owners.
-
 
 ## Authentication foundation
 
@@ -75,12 +70,11 @@ Supported roles:
 
 Never commit `.env` or production credentials.
 
-
 ## Auth v0.2 verification
 
 From `backend/`:
 
-```bash
+```powershell
 pip install -r requirements.txt
 pytest -q
 uvicorn app.main:app --reload
@@ -108,3 +102,41 @@ Then use Swagger at `http://127.0.0.1:8000/docs`.
 Use the returned bearer token with `GET /api/v1/me`.
 
 Authentication is database-backed. Successful and failed logins create security events, and successful logins create an audit log entry.
+
+## Frontend setup
+
+From the repository root:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://127.0.0.1:3000`.
+
+For a production build:
+
+```powershell
+npm run build
+npm start
+```
+
+## Frontend routes
+
+| Page | Route |
+| --- | --- |
+| Landing | `/` |
+| Customer login / sign-up | `/login`, `/register` |
+| Admin login | `/admin/login` |
+| Password recovery / session expired | `/forgot-password`, `/session-expired` |
+| Customer dashboard | `/portal/dashboard` |
+| Accounts | `/portal/accounts` |
+| Transfers / bill payments | `/portal/payments`, `/portal/payments?tab=bills` |
+| Payees / scheduled payments | `/portal/payees`, `/portal/scheduled` |
+| Statements | `/portal/statements` |
+| Loans / investments | `/portal/loans`, `/portal/wealth` |
+| Analytics / recommendations | `/portal/analytics`, `/portal/recommendations` |
+| Notifications / settings | `/portal/notifications`, `/portal/settings` |
+
+The frontend currently uses sample data. Customer login opens the workspace without backend authentication; live banking integration is pending.
