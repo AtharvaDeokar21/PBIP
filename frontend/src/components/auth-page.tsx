@@ -1,0 +1,250 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Building2,
+} from "lucide-react";
+import { Brand } from "./ui";
+
+type AuthMode =
+  "login" | "register" | "forgot-password" | "session-expired" | "admin-login";
+export default function AuthPage({ mode }: { mode: AuthMode }) {
+  const router = useRouter();
+  const [visible, setVisible] = useState(false);
+  const [message, setMessage] = useState("");
+  const isAdmin = mode === "admin-login";
+  const isRegister = mode === "register";
+  const isRecovery = mode === "forgot-password";
+  const expired = mode === "session-expired";
+  function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (mode === "login") {
+      router.push("/portal/dashboard");
+      return;
+    }
+    setMessage(
+      isRecovery
+        ? "Password recovery is not connected yet. No reset email has been sent."
+        : isRegister
+          ? "Sign-up is not connected yet. Your details have not been sent and no account has been created."
+          : `${isAdmin ? "Admin" : "Customer"} sign-in is not connected yet. Your credentials have not been sent and no session has been started.`,
+    );
+  }
+  return (
+    <div className="auth-layout">
+      <aside className="auth-story">
+        <Brand light />
+        <div>
+          <span className="eyebrow">
+            {isAdmin
+              ? "THE PEOPLE BEHIND BETTER BANKING"
+              : "YOUR MONEY. MORE POSSIBILITIES."}
+          </span>
+          <h1>
+            {isAdmin ? (
+              <>
+                Better oversight.
+                <br />
+                Thoughtful decisions.
+                <br />
+                <em>Banking, together.</em>
+              </>
+            ) : (
+              <>
+                A little clarity.
+                <br />A little confidence.
+                <br />
+                <em>A lot more you.</em>
+              </>
+            )}
+          </h1>
+          <p>
+            {isAdmin
+              ? "A dedicated entry point for authorized banking administrators."
+              : "Everyday banking and a brighter financial future. Thoughtfully connected."}
+          </p>
+          <div className="auth-quote">
+            <Sparkles size={23} />
+            <p>
+              {isAdmin ? (
+                "One team. A clearer view."
+              ) : (
+                <>
+                  Big plans begin with
+                  <br />
+                  small, everyday steps.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+        <small>Credora · Banking, thoughtfully connected.</small>
+      </aside>
+      <main id="main" className="auth-main">
+        <Link className="text-link" href="/">
+          <ArrowLeft size={16} /> Back to home
+        </Link>
+        <div className="auth-form">
+          <nav className="auth-access-tabs" aria-label="Login type">
+            <Link
+              href="/login"
+              className={!isAdmin ? "active" : ""}
+              aria-current={!isAdmin ? "page" : undefined}
+            >
+              <Users size={17} /> Customer
+            </Link>
+            <Link
+              href="/admin/login"
+              className={isAdmin ? "active" : ""}
+              aria-current={isAdmin ? "page" : undefined}
+            >
+              <Building2 size={17} /> Admin
+            </Link>
+          </nav>
+          <span className="icon-tile lavender">
+            {isAdmin ? <Building2 size={24} /> : <ShieldCheck size={24} />}
+          </span>
+          <span className="eyebrow">
+            {isAdmin ? "INTERNAL BANKING PORTAL" : "YOUR PERSONAL BANKING"}
+          </span>
+          <h1>
+            {isAdmin
+              ? "Admin login"
+              : isRegister
+                ? "Create your account"
+                : isRecovery
+                  ? "Forgot your password?"
+                  : expired
+                    ? "Let’s reconnect."
+                    : "Customer login"}
+          </h1>
+          <p className="muted">
+            {isAdmin
+              ? "Sign in with your administrator email and password."
+              : isRegister
+                ? "Start your next chapter with Credora."
+                : isRecovery
+                  ? "Enter your email address to request a password reset."
+                  : expired
+                    ? "Sign in again to continue to your account."
+                    : "This opens the sample workspace only. Your credentials are not sent to a backend."}
+          </p>
+          {expired ? (
+            <Link href="/login" className="button">
+              Back to sign in <ArrowRight size={16} />
+            </Link>
+          ) : (
+            <form onSubmit={submit} onChange={() => setMessage("")}>
+              {isRegister && (
+                <div className="form-two">
+                  <label>
+                    First name
+                    <input
+                      required
+                      autoComplete="given-name"
+                      placeholder="Your first name"
+                      maxLength={100}
+                    />
+                  </label>
+                  <label>
+                    Last name
+                    <input
+                      required
+                      autoComplete="family-name"
+                      placeholder="Your last name"
+                      maxLength={100}
+                    />
+                  </label>
+                </div>
+              )}
+              <label>
+                {isAdmin ? "Administrator email" : "Email address"}
+                <input
+                  required
+                  type="email"
+                  autoComplete="username"
+                  placeholder={
+                    isAdmin ? "admin@credora.com" : "you@example.com"
+                  }
+                  maxLength={254}
+                />
+              </label>
+              {!isRecovery && (
+                <label>
+                  Password
+                  <div className="password-input">
+                    <input
+                      required
+                      type={visible ? "text" : "password"}
+                      minLength={8}
+                      maxLength={72}
+                      autoComplete={
+                        isRegister ? "new-password" : "current-password"
+                      }
+                      placeholder="At least 8 characters"
+                    />
+                    <button
+                      type="button"
+                      className="icon-button"
+                      aria-label={visible ? "Hide password" : "Show password"}
+                      onClick={() => setVisible(!visible)}
+                    >
+                      {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </label>
+              )}
+              {mode === "login" && (
+                <div className="auth-links">
+                  <span />
+                  <Link href="/forgot-password">Forgot password?</Link>
+                </div>
+              )}
+              {isAdmin && (
+                <p className="field-help admin-help">
+                  Access is provisioned by your organization. Contact your
+                  system administrator if you need help signing in.
+                </p>
+              )}
+              {message && (
+                <p className="form-error" role="alert">
+                  {message}
+                </p>
+              )}
+              <button className="button full-width">
+                {isRecovery
+                  ? "Send reset link"
+                  : isRegister
+                    ? "Sign up"
+                    : isAdmin
+                      ? "Admin login"
+                      : "Log in"}
+                <ArrowRight size={17} />
+              </button>
+            </form>
+          )}
+          {!isAdmin && !expired && (
+            <p className="auth-bottom">
+              {isRegister ? "Already have an account?" : "New to Credora?"}{" "}
+              <Link href={isRegister ? "/login" : "/register"}>
+                {isRegister ? "Log in" : "Sign up"}
+              </Link>
+            </p>
+          )}
+          <span className="security-note">
+            <ShieldCheck size={15} /> Never share your password or OTP.
+          </span>
+        </div>
+        <small className="muted">© 2026 Credora · Built around you.</small>
+      </main>
+    </div>
+  );
+}
