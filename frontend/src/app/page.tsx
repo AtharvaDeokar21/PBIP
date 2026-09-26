@@ -19,8 +19,9 @@ export default function Landing() {
     <div className="landing">
       <div className="announcement">
         <div className="container utility-inner">
-          <span className="utility-message"><span className="tiny-dot" /> A fresh perspective on your financial future</span>
-          <Link className="staff-login" href="/admin/login"><ShieldCheck size={14} /> Admin login <ArrowUpRight size={13} /></Link>
+          <span className="utility-message">
+            <span className="tiny-dot" /> A fresh perspective on your financial future
+          </span>
         </div>
       </div>
       <header className="landing-header container">
@@ -32,7 +33,7 @@ export default function Landing() {
         </nav>
         <div className="landing-auth-actions" role="group" aria-label="Customer access">
           <Link className="customer-login" href="/login">
-            Customer login
+            Login
           </Link>
           <Link className="customer-signup" href="/register">
             Sign up <ArrowRight size={16} />
@@ -308,13 +309,29 @@ export default function Landing() {
               Explore your possibilities <ArrowUpRight size={18} />
             </Link>
           </div>
-          <div className="future-art" aria-hidden="true">
-            <span>
-              your
-              <br />
-              <i>next.</i>
-            </span>
-            <ArrowUpRight />
+          <div className="goal-illustration">
+            <svg viewBox="0 0 340 260" role="img" aria-label="Saving towards a home: a house surrounded by growing savings and a leafy plant">
+              <circle cx="177" cy="128" r="113" fill="#ffffff06" stroke="#ffffff18" />
+              <circle cx="177" cy="128" r="91" fill="none" stroke="#ffffff12" />
+              <ellipse cx="176" cy="224" rx="126" ry="10" fill="#35124d" opacity=".25" />
+              <path d="M97 119 167 57 237 119" fill="none" stroke="#e8c9f6" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M111 116 167 67 223 116V209H111Z" fill="#f5eafa" />
+              <path d="M193 78V58H209V93" fill="#c797de" />
+              <rect x="150" y="155" width="34" height="54" rx="4" fill="#8850aa" />
+              <circle cx="175" cy="184" r="2" fill="#f5eafa" />
+              <rect x="131" y="119" width="23" height="23" rx="3" fill="#c4a0da" />
+              <rect x="181" y="119" width="23" height="23" rx="3" fill="#c4a0da" />
+              <path d="M142.5 119V142M131 130.5H154M192.5 119V142M181 130.5H204" stroke="#f5eafa" strokeWidth="2" />
+              {[204, 191, 178].map((y) => <g key={y}><rect x="67" y={y} width="54" height="13" rx="5" fill="#c390dc" /><ellipse cx="94" cy={y} rx="27" ry="7" fill="#e5c3f3" /><path d={`M75 ${y + 9}H113`} stroke="#ad74cb" strokeWidth="1.5" /></g>)}
+              {[210, 197].map((y) => <g key={y}><rect x="106" y={y} width="45" height="11" rx="4" fill="#ac78c9" /><ellipse cx="128.5" cy={y} rx="22.5" ry="6" fill="#d7b1e8" /></g>)}
+              <path d="M260 199V141" stroke="#e3c5ef" strokeWidth="3" strokeLinecap="round" />
+              <path d="M260 177C232 180 231 150 231 150S257 148 260 177Z" fill="#bc8bd2" />
+              <path d="M260 161C287 162 287 131 287 131S261 136 260 161Z" fill="#e1c4ee" />
+              <path d="M260 145C241 140 246 117 246 117S265 125 260 145Z" fill="#d0a4e3" />
+              <path d="M241 195H278L271 221H248Z" fill="#b382cc" />
+              <path d="M78 83V95M72 89H84M266 79V91M260 85H272" stroke="#d8b4e9" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="281" cy="108" r="3" fill="#d8b4e9" />
+            </svg>
           </div>
         </section>
         <section className="closing container">

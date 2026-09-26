@@ -108,14 +108,6 @@ export default function PortalShell({
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-help">
-            <ShieldCheck size={23} />
-            <strong>A little reminder</strong>
-            <p>
-              Never share your password or OTP. Even with someone who says
-              they’re us.
-            </p>
-          </div>
           <Link href="/portal/settings">
             <Settings size={18} /> Profile & settings
           </Link>
@@ -169,10 +161,6 @@ export default function PortalShell({
             </Link>
           </div>
         </header>
-        <div className="workspace-banner">
-          <span className="tiny-dot" /> You’re exploring with sample data. No
-          real accounts or payments are connected.
-        </div>
         <main id="main" className="portal-main">
           {children}
         </main>
