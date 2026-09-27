@@ -37,6 +37,9 @@ if _env_file.exists():
     # Also change CWD to backend/ so relative .env lookups in pydantic-settings work.
     _os.chdir(_BACKEND_DIR)
 
+import logging
+logging.getLogger("passlib").setLevel(logging.ERROR)
+
 from sqlalchemy import func, select, text
 
 from app.core.database import AsyncSessionLocal
