@@ -26,6 +26,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BACKEND_DIR = _REPO_ROOT / "backend"
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
 
 # Point pydantic-settings at the backend/.env before any app module is imported.
 import os as _os
