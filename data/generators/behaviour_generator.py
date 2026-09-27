@@ -104,7 +104,7 @@ async def generate_behaviour_events(
                 minutes=rng.randint(0, 59),
             )
 
-            session_size = rng.randint(2, min(5, events_left))
+            session_size = rng.randint(min(2, events_left), min(5, events_left))
             for offset in range(session_size):
                 ts = session_start + timedelta(minutes=offset * rng.randint(1, 8))
                 event_type = rng.choices(EVENT_TYPES, weights=EVENT_WEIGHTS, k=1)[0]

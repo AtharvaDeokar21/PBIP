@@ -19,12 +19,21 @@ import time
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
-# Ensure the backend package is importable when running from the repo root.
+# Ensure the backend package is importable and .env is loaded correctly
+# regardless of the working directory the user runs the script from.
 # ---------------------------------------------------------------------------
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _BACKEND_DIR = _REPO_ROOT / "backend"
 if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
+
+# Point pydantic-settings at the backend/.env before any app module is imported.
+import os as _os
+_env_file = _BACKEND_DIR / ".env"
+if _env_file.exists():
+    _os.environ.setdefault("ENV_FILE", str(_env_file))
+    # Also change CWD to backend/ so relative .env lookups in pydantic-settings work.
+    _os.chdir(_BACKEND_DIR)
 
 from sqlalchemy import func, select, text
 
