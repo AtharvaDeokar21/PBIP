@@ -33,3 +33,7 @@ JSON responses with stable field names. IDs are UUIDs and timestamps are ISO-860
 - Frontend must not depend on database structure directly.
 - AI tools must call backend APIs, not arbitrary SQL.
 - Breaking API changes require a version or an explicit team-approved migration.
+
+## Domain API references
+
+- [Customer Banking API](customer/README.md): customers, accounts, transactions, payees, transfers, bills, loans, investments, insurance, recommendations

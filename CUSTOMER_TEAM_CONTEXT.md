@@ -892,6 +892,8 @@ A customer should be able to:
 The entire journey should work using the same customer identity and database state.
 ## 28. Implementation Notes (contract deltas)
 
+Full API reference: [`docs/api/customer/`](docs/api/customer/README.md).
+
 Implemented in `backend/app/{api,services,schemas}`. Differences from / additions to the contract above:
 
 - **Account numbers are masked** (`XXXX1234`) in all account and payee responses and in audit logs.
