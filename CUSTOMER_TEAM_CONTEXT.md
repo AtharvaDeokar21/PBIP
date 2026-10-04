@@ -890,3 +890,30 @@ A customer should be able to:
 - Interact with the AI assistant
 
 The entire journey should work using the same customer identity and database state.
+## 28. Implementation Notes (contract deltas)
+
+Implemented in `backend/app/{api,services,schemas}`. Differences from / additions to the contract above:
+
+- **Account numbers are masked** (`XXXX1234`) in all account and payee responses and in audit logs.
+- **Customer:** `PATCH /customers/me` (only phone, address, city, state, postal_code, occupation are editable) and `GET /customers/me/summary` (financial summary).
+- **Transactions:** listing is account-scoped only (`GET /accounts/{id}/transactions`); `page_size` max is 100.
+- **Payees:** new `is_active` column (migration `a3c1f2d4e5b6`). `DELETE /payees/{id}` soft-deactivates and returns `204`. Only `name`, `bank_name`, `nickname` are editable; bank details require a new payee. Request field is `ifsc_code`.
+- **Transfers:**
+  - Supply exactly one of `payee_id` or `destination_account_id` (own-account internal transfer).
+  - Optional `remarks`.
+  - Limits: 500,000 per transfer and 1,000,000 per day (configurable in `Settings`).
+  - IMMEDIATE transfers complete synchronously (`PENDING → PROCESSING → COMPLETED`).
+  - SCHEDULED transfers are stored as `SCHEDULED` with no funds moved; an execution job is not yet implemented.
+  - New `GET /transfers/{id}` and `POST /transfers/{id}/cancel` (only `PENDING`/`SCHEDULED`).
+  - Transfers ≥ 200,000 write a `HIGH_VALUE_TRANSFER` security event for the fraud engine.
+- **Bills:** payment completes synchronously (status `COMPLETED`) and records a `BILL_PAYMENT` debit transaction.
+- **Loans:**
+  - The eligibility response is `{loan_product_id, eligible, eligibility_score, interest_rate, estimated_emi, reasons: [..]}`.
+  - Applications outside product amount/tenure limits are rejected with `422`; a duplicate open application for the same product returns `409`.
+  - New `GET /loans/products/{id}` and `GET /loans/applications/{id}`.
+- **Investments:** optional `source_account_id` on `POST /investments` debits that account. New `GET /investments/products/{id}`.
+- **Insurance:** `GET /insurance/products/{id}` added.
+- **Access:**
+  - Catalogue endpoints (billers and loan/investment/insurance products) need any authenticated user.
+  - All customer-owned endpoints need the `CUSTOMER` role.
+  - Another customer's resources return `404`.

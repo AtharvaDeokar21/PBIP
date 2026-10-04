@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # Customer banking limits (INR)
+    max_single_transfer_amount: float = 500_000
+    daily_transfer_limit: float = 1_000_000
+    max_page_size: int = 100
+
     groq_api_key: str | None = None
     groq_model: str = "llama-3.3-70b-versatile"
 

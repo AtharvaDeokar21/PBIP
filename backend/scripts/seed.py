@@ -14,7 +14,8 @@ from app.core.database import AsyncSessionLocal
 from app.core.security import hash_password
 
 from app.models.identity import User, Customer
-from app.models.banking import Account, Transaction, Payee
+from app.models.banking import Account, Transaction, Payee, Biller
+from app.models.intelligence import Recommendation
 from app.models.products import (
     LoanProduct,
     InvestmentProduct,
@@ -370,6 +371,112 @@ async def seed_products(db: AsyncSession):
     await db.flush()
 
 
+async def seed_billers(db: AsyncSession):
+    print("Creating billers...")
+
+    billers = [
+        ("BSES Electricity", "ELECTRICITY", "BSES001"),
+        ("Mahanagar Gas", "GAS", "MGL001"),
+        ("Airtel Postpaid", "MOBILE", "AIRTEL001"),
+        ("Jio Fiber", "BROADBAND", "JIOFIBER001"),
+        ("MCGM Water", "WATER", "MCGM001"),
+    ]
+
+    for name, category, provider_code in billers:
+        existing = await db.execute(
+            select(Biller).where(Biller.provider_code == provider_code)
+        )
+
+        if existing.scalars().first():
+            continue
+
+        db.add(
+            Biller(
+                id=uuid.uuid4(),
+                name=name,
+                category=category,
+                provider_code=provider_code,
+                is_active=True,
+            )
+        )
+
+    await db.flush()
+
+
+async def seed_recommendations(db: AsyncSession):
+    """Demo recommendations for the demo customer.
+
+    Real recommendations are produced by the Internal/Analytics team; these
+    only exist so the customer-facing endpoint has data to show.
+    """
+    print("Creating demo recommendations...")
+
+    result = await db.execute(
+        select(Customer)
+        .join(User, User.id == Customer.user_id)
+        .where(User.email == "customer@pbip.demo")
+    )
+
+    customer = result.scalar_one_or_none()
+
+    if customer is None:
+        return
+
+    existing = await db.execute(
+        select(Recommendation).where(
+            Recommendation.customer_id == customer.id,
+            Recommendation.status == "ACTIVE",
+        )
+    )
+
+    if existing.scalars().first():
+        return
+
+    investment = (
+        await db.execute(
+            select(InvestmentProduct).where(
+                InvestmentProduct.name == "Balanced Growth Fund"
+            )
+        )
+    ).scalar_one_or_none()
+
+    insurance = (
+        await db.execute(
+            select(InsuranceProduct).where(
+                InsuranceProduct.name == "Health Protect"
+            )
+        )
+    ).scalar_one_or_none()
+
+    now = datetime.now(timezone.utc)
+
+    recommendations = [
+        ("INVESTMENT", investment, "0.8500", "Regular surplus balance suits a balanced fund."),
+        ("INSURANCE", insurance, "0.7200", "No health cover found on your profile."),
+    ]
+
+    for product_type, product, score, reason in recommendations:
+        if product is None:
+            continue
+
+        db.add(
+            Recommendation(
+                id=uuid.uuid4(),
+                customer_id=customer.id,
+                product_type=product_type,
+                product_id=product.id,
+                recommendation_type="CROSS_SELL",
+                score=Decimal(score),
+                reason=reason,
+                status="ACTIVE",
+                created_at=now,
+                expires_at=now + timedelta(days=30),
+            )
+        )
+
+    await db.flush()
+
+
 async def seed():
     print("=" * 60)
     print("PBIP DATABASE SEED")
@@ -382,6 +489,8 @@ async def seed():
             await seed_accounts(db)
             await seed_transactions(db)
             await seed_products(db)
+            await seed_billers(db)
+            await seed_recommendations(db)
 
             await db.commit()
 

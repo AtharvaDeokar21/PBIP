@@ -4,12 +4,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.health import router as health_router
 from app.api.router import api_router
 from app.core.config import settings
+from app.core.exceptions import register_exception_handlers
 
 app = FastAPI(
     title=settings.app_name,
     version="0.4.0",
     description="Personal Banking Intelligence Platform API",
 )
+
+register_exception_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,
