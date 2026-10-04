@@ -1,13 +1,14 @@
+from dataclasses import dataclass
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.models.identity import User
+from app.models.identity import Customer, User
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -59,3 +60,39 @@ def require_roles(*allowed_roles: str):
         return current_user
 
     return dependency
+
+
+@dataclass(frozen=True)
+class RequestContext:
+    """Client metadata captured for audit logging."""
+
+    ip_address: str | None
+    user_agent: str | None
+
+
+def get_request_context(request: Request) -> RequestContext:
+    user_agent = request.headers.get("user-agent")
+    return RequestContext(
+        ip_address=request.client.host if request.client else None,
+        user_agent=user_agent[:500] if user_agent else None,
+    )
+
+
+async def get_current_customer(
+    current_user: User = Depends(require_roles("CUSTOMER")),
+    db: AsyncSession = Depends(get_db),
+) -> Customer:
+    """Resolve the customer profile from the authenticated JWT.
+
+    This is the only way customer-facing endpoints obtain a customer identity;
+    a customer_id is never accepted from the client.
+    """
+    customer = await db.scalar(
+        select(Customer).where(Customer.user_id == current_user.id)
+    )
+    if customer is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer profile not found",
+        )
+    return customer

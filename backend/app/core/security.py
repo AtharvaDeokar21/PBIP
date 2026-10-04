@@ -51,3 +51,10 @@ def decode_access_token(token: str) -> dict:
 
     except JWTError as exc:
         raise ValueError("Invalid or expired token") from exc
+
+
+def mask_account_number(account_number: str | None) -> str | None:
+    """Show only the last 4 digits of an account number, e.g. XXXX1234."""
+    if not account_number:
+        return account_number
+    return f"XXXX{account_number[-4:]}"

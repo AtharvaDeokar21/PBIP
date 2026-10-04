@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, true
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -52,6 +52,7 @@ class Payee(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     ifsc_code: Mapped[str | None] = mapped_column(String(20))
     nickname: Mapped[str | None] = mapped_column(String(100))
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true(), nullable=False)
 
 
 class Transfer(UUIDPrimaryKeyMixin, TimestampMixin, Base):
