@@ -231,7 +231,9 @@ test("customer login, sign-up and admin login remain separate", async ({
   await page.getByLabel("Password", { exact: true }).fill("SampleOnly123");
   await page.getByRole("button", { name: "Log in", exact: true }).click();
   await expect(page).toHaveURL(/\/portal\/dashboard$/);
-  await expect(page.getByText(/exploring with sample data/)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /Good morning, Akhil Doshi/ }),
+  ).toBeVisible();
   await page.goto("/login");
   await page.getByRole("link", { name: "Sign up", exact: true }).click();
   await expect(
@@ -258,10 +260,10 @@ test("customer login, sign-up and admin login remain separate", async ({
   await page.getByLabel("Administrator email").fill("admin@example.com");
   await page.getByLabel("Password", { exact: true }).fill("SampleOnly123");
   await page.getByRole("button", { name: "Admin login", exact: true }).click();
-  await expect(page.locator("main").getByRole("alert")).toContainText(
-    "Admin sign-in is not connected yet",
-  );
-  await expect(page).toHaveURL(/\/admin\/login$/);
+  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  await expect(
+    page.getByRole("heading", { name: "Dashboard", exact: true }),
+  ).toBeVisible();
   await expect(page.locator("body")).not.toContainText(/demo/i);
   await page.setViewportSize({ width: 390, height: 844 });
   expect(

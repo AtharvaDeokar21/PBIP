@@ -26,8 +26,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
   const expired = mode === "session-expired";
   function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (mode === "login") {
-      router.push("/portal/dashboard");
+    if (mode === "login" || mode === "admin-login") {
+      router.push(
+        mode === "admin-login" ? "/admin/dashboard" : "/portal/dashboard",
+      );
       return;
     }
     setMessage(
