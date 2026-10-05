@@ -102,7 +102,10 @@ export default function Analytics() {
       .forEach((t) => {
         totals.set(t.category, (totals.get(t.category) || 0) + t.amount);
       });
-    return [...totals.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "No spending recorded";
+    return (
+      [...totals.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      "No spending recorded"
+    );
   }
   const spendingRows = [
     "Food",

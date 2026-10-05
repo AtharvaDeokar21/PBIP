@@ -214,11 +214,15 @@ export default function FraudInvestigation() {
   const openCount = investigations.filter(
     (i) => i.status === "Open" || i.status === "In review",
   ).length;
-  const escalatedCount = investigations.filter((i) => i.status === "Escalated").length;
+  const escalatedCount = investigations.filter(
+    (i) => i.status === "Escalated",
+  ).length;
   const resolvedCount = investigations.filter(
     (i) => i.status === "Resolved" || i.status === "False positive",
   ).length;
-  const assignees = Array.from(new Set(investigations.map((i) => i.assignedTo)));
+  const assignees = Array.from(
+    new Set(investigations.map((i) => i.assignedTo)),
+  );
 
   const inr = new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -259,7 +263,8 @@ export default function FraudInvestigation() {
           </span>
           <div>
             <h2>
-              {openCount} active investigation{openCount !== 1 ? "s" : ""} in progress.
+              {openCount} active investigation{openCount !== 1 ? "s" : ""} in
+              progress.
             </h2>
             <p>
               {escalatedCount} escalated · {resolvedCount} closed in this cycle.
@@ -308,7 +313,10 @@ export default function FraudInvestigation() {
         <div className="admin-audit-search">
           <SearchBar
             value={search}
-            onChange={(v) => { setSearch(v); setPage(1); }}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
             placeholder="Search by case ID, customer, alert or type…"
           />
         </div>
@@ -323,7 +331,10 @@ export default function FraudInvestigation() {
               { value: "Medium", label: "Medium" },
               { value: "Low", label: "Low" },
             ]}
-            onChange={(v) => { setSeverity(v); setPage(1); }}
+            onChange={(v) => {
+              setSeverity(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Status"
@@ -336,7 +347,10 @@ export default function FraudInvestigation() {
               { value: "Resolved", label: "Resolved" },
               { value: "False positive", label: "False positive" },
             ]}
-            onChange={(v) => { setStatus(v); setPage(1); }}
+            onChange={(v) => {
+              setStatus(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Assigned analyst"
@@ -345,13 +359,17 @@ export default function FraudInvestigation() {
               { value: "all", label: "All analysts" },
               ...assignees.map((a) => ({ value: a, label: a })),
             ]}
-            onChange={(v) => { setAssignee(v); setPage(1); }}
+            onChange={(v) => {
+              setAssignee(v);
+              setPage(1);
+            }}
           />
           <div />
         </div>
         <div className="admin-filter-caption">
           <span>
-            {filtered.length} case{filtered.length !== 1 ? "s" : ""} match current filters
+            {filtered.length} case{filtered.length !== 1 ? "s" : ""} match
+            current filters
           </span>
           <button className="text-link" onClick={resetFilters}>
             <Filter size={12} /> Reset filters
@@ -417,11 +435,13 @@ export default function FraudInvestigation() {
                       </div>
                       <button
                         className="icon-button admin-investigation-toggle"
-                        aria-label={isExpanded ? "Collapse case notes" : "Expand case notes"}
-                        aria-expanded={isExpanded}
-                        onClick={() =>
-                          setExpanded(isExpanded ? null : inv.id)
+                        aria-label={
+                          isExpanded
+                            ? "Collapse case notes"
+                            : "Expand case notes"
                         }
+                        aria-expanded={isExpanded}
+                        onClick={() => setExpanded(isExpanded ? null : inv.id)}
                       >
                         {isExpanded ? (
                           <ChevronUp size={18} />
@@ -473,7 +493,8 @@ export default function FraudInvestigation() {
                           </Link>
                         </div>
                         <p className="admin-investigation-disclaimer">
-                          Sample data · Actions connect to backend API integration pending.
+                          Sample data · Actions connect to backend API
+                          integration pending.
                         </p>
                       </div>
                     )}

@@ -109,7 +109,8 @@ export default function Customers() {
           value={data.customers.reduce(
             (sum, c) =>
               sum +
-              c.accounts.filter((account) => account.status === "Active").length,
+              c.accounts.filter((account) => account.status === "Active")
+                .length,
             0,
           )}
           icon={Landmark}
