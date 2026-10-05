@@ -13,6 +13,10 @@ import {
   Search,
   ChevronRight,
   Building2,
+  FileText,
+  ShieldAlert,
+  ScanSearch,
+  Scale,
 } from "lucide-react";
 import { Brand } from "@/components/ui";
 const links = [
@@ -22,6 +26,24 @@ const links = [
     href: "/admin/analytics",
     label: "Behaviour analytics",
     icon: ChartNoAxesCombined,
+  },
+];
+const links2 = [
+  { href: "/admin/audit-logs", label: "Audit Logs", icon: FileText },
+  {
+    href: "/admin/fraud",
+    label: "Fraud & Security",
+    icon: ShieldAlert,
+  },
+  {
+    href: "/admin/investigations",
+    label: "Fraud Investigation",
+    icon: ScanSearch,
+  },
+  {
+    href: "/admin/compliance",
+    label: "Compliance & Risk",
+    icon: Scale,
   },
 ];
 export default function AdminShell({
@@ -36,6 +58,7 @@ export default function AdminShell({
   const title = pathname.startsWith("/admin/customers/")
     ? "Customer details"
     : links.find((link) => pathname.startsWith(link.href))?.label ||
+      links2.find((link) => pathname.startsWith(link.href))?.label ||
       "Dashboard";
   return (
     <div className="admin-app">
@@ -56,6 +79,20 @@ export default function AdminShell({
         <div className="admin-nav-label">WORKSPACE</div>
         <nav aria-label="Internal banking navigation">
           {links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={pathname.startsWith(link.href) ? "is-active" : ""}
+              aria-current={pathname.startsWith(link.href) ? "page" : undefined}
+              onClick={() => setOpen(false)}
+            >
+              <link.icon size={19} />
+              {link.label}
+              {pathname.startsWith(link.href) && <ChevronRight size={15} />}
+            </Link>
+          ))}
+          <div className="admin-nav-label admin-nav-section-label">SECURITY</div>
+          {links2.map((link) => (
             <Link
               key={link.href}
               href={link.href}

@@ -1514,3 +1514,227 @@
     transition: none;
   }
 }
+
+/* ── Person 2 page additions ── */
+.admin-nav-section-label {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f0e7f8;
+}
+.admin-audit-search {
+  margin-bottom: 4px;
+}
+.admin-audit-actor {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 140px;
+}
+.admin-audit-avatar {
+  width: 28px !important;
+  height: 28px !important;
+  font-size: 9px !important;
+}
+.admin-audit-action {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #6e5480;
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.admin-audit-action > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.admin-ip {
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  background: #f5f0f9;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #8a6d9e;
+}
+/* fraud banner colour variant */
+.admin-fraud-banner .admin-banner-icon,
+.admin-banner-icon-red {
+  color: #b3546b !important;
+  background: #fff0f3 !important;
+}
+.admin-compliance-banner .admin-banner-icon,
+.admin-banner-icon-amber {
+  color: #b5893d !important;
+  background: #fff7ea !important;
+}
+/* Investigation cards */
+.admin-investigations-list {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+.admin-investigation-card {
+  border: 1px solid #ece2f5;
+  border-radius: 11px;
+  padding: 18px 20px 14px;
+  background: #fdfcff;
+  transition: border-color 0.15s;
+}
+.admin-investigation-card:hover {
+  border-color: #c9a5e0;
+}
+.admin-investigation-header {
+  display: flex;
+  align-items: start;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.admin-investigation-meta {
+  flex: 1;
+  min-width: 0;
+}
+.admin-investigation-ids {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.admin-investigation-ids strong {
+  font-size: 12px;
+  color: #5e3f76;
+}
+.admin-investigation-ids small {
+  font-size: 10px;
+  color: #b49ec4;
+}
+.admin-investigation-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #9178a5;
+}
+.admin-investigation-type {
+  color: #7c5e90;
+  font-weight: 500;
+}
+.admin-investigation-amount {
+  background: #f5f0fa;
+  color: #8050a0;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px;
+  font-weight: 500;
+}
+.admin-investigation-badges {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.admin-investigation-toggle {
+  flex-shrink: 0;
+  color: #9e80b1;
+}
+.admin-investigation-timestamps {
+  display: flex;
+  gap: 20px;
+  font-size: 9px;
+  color: #b8a3c6;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.admin-investigation-timestamps span {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.admin-investigation-notes {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ede3f7;
+}
+.admin-investigation-notes-heading {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #7155895;
+  margin-bottom: 10px;
+  color: #7c5e90;
+}
+.admin-investigation-note-list {
+  margin: 0 0 16px 18px;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.admin-investigation-note-list li {
+  font-size: 11px;
+  color: #8a6fa0;
+  line-height: 1.7;
+}
+.admin-investigation-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.admin-investigation-disclaimer {
+  font-size: 9px;
+  color: #c0acd0;
+}
+.admin-risk-number {
+  font-size: 9px !important;
+  background: #f4ecfa !important;
+  color: #8651aa !important;
+}
+/* compliance page */
+.admin-overdue {
+  color: #b3546b !important;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.admin-compliance-description {
+  font-size: 9px;
+  color: #b09cbc;
+  display: block;
+  margin-top: 3px;
+}
+.admin-risk-bar-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 100px;
+}
+.admin-risk-score-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 22px;
+  border-radius: 5px;
+  background: #f3ecfa;
+  color: #8952a4;
+  font-size: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.admin-risk-mini-bar {
+  flex: 1;
+  height: 5px;
+  background: #f4edf9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.admin-risk-mini-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
