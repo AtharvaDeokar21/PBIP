@@ -140,11 +140,13 @@ playwright.config.ts              Test server and browser configuration
 
 ## Team handoff
 
+The Person 1 admin frontend now includes `/admin/dashboard`, `/admin/customers`, `/admin/customers/[id]` and `/admin/analytics`. These share typed fictional records through `src/lib/admin/service.ts`; backend integration remains pending. Admin components and scoped styles are separate from the customer portal. `tests/admin.spec.ts` covers navigation, filters, pagination, details and responsive layouts.
+
 - Read the [feature tracker](../docs/FRONTEND_FEATURE_TRACKER.md) before claiming work. Mark the interface and API integration separately.
 - Follow the [design system](../docs/FRONTEND_DESIGN_SYSTEM.md) for colors, typography and shared components.
 - Coordinate changes to `globals.css`, `ui.tsx` and the customer shell, which affect multiple pages.
 - Split a customer module into its own component before two developers work independently in `customer-pages.tsx`.
-- Add internal operational pages under `src/app/admin/` and separate admin components. The existing login screen does not implement admin access control.
+- Continue internal modules under `src/app/admin/` and reuse `src/components/admin/`. Admin login opens the workspace without backend authentication or access control.
 
 ## Connecting the backend
 
