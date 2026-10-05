@@ -69,18 +69,50 @@ function generateAuditLogs(asOf: string): AuditEntry[] {
   ];
   const actions = [
     { action: "Login", resource: "Auth", outcome: "Success" as const },
-    { action: "Alert review", resource: "Fraud Alert", outcome: "Success" as const },
-    { action: "Alert resolved", resource: "Fraud Alert", outcome: "Success" as const },
-    { action: "Account view", resource: "Customer Account", outcome: "Success" as const },
-    { action: "Transaction view", resource: "Transaction", outcome: "Success" as const },
-    { action: "Profile update", resource: "Customer Profile", outcome: "Success" as const },
+    {
+      action: "Alert review",
+      resource: "Fraud Alert",
+      outcome: "Success" as const,
+    },
+    {
+      action: "Alert resolved",
+      resource: "Fraud Alert",
+      outcome: "Success" as const,
+    },
+    {
+      action: "Account view",
+      resource: "Customer Account",
+      outcome: "Success" as const,
+    },
+    {
+      action: "Transaction view",
+      resource: "Transaction",
+      outcome: "Success" as const,
+    },
+    {
+      action: "Profile update",
+      resource: "Customer Profile",
+      outcome: "Success" as const,
+    },
     { action: "Login", resource: "Auth", outcome: "Failure" as const },
-    { action: "Password change", resource: "Auth", outcome: "Success" as const },
-    { action: "Alert review", resource: "Compliance Alert", outcome: "Warning" as const },
+    {
+      action: "Password change",
+      resource: "Auth",
+      outcome: "Success" as const,
+    },
+    {
+      action: "Alert review",
+      resource: "Compliance Alert",
+      outcome: "Warning" as const,
+    },
     { action: "Logout", resource: "Auth", outcome: "Success" as const },
   ];
   const ips = [
-    "192.168.1.42", "10.0.0.15", "172.16.0.88", "192.168.10.5", "10.1.2.34",
+    "192.168.1.42",
+    "10.0.0.15",
+    "172.16.0.88",
+    "192.168.10.5",
+    "10.1.2.34",
   ];
   const customerIds = ["C1001", "C1002", "C1003", "C1004", "C1005", "C1006"];
   const logs: AuditEntry[] = [];
@@ -96,16 +128,19 @@ function generateAuditLogs(asOf: string): AuditEntry[] {
       actorRole: actor.role,
       action: act.action,
       resource: act.resource,
-      resourceId: act.resource === "Auth"
-        ? `USER-${1001 + (i % 5)}`
-        : act.resource.includes("Customer")
-          ? customerIds[i % customerIds.length]
-          : `FA-${2030 + i}`,
+      resourceId:
+        act.resource === "Auth"
+          ? `USER-${1001 + (i % 5)}`
+          : act.resource.includes("Customer")
+            ? customerIds[i % customerIds.length]
+            : `FA-${2030 + i}`,
       outcome: act.outcome,
       ipAddress: ips[i % ips.length],
       timestamp: ts,
       customerId:
-        act.resource !== "Auth" ? customerIds[i % customerIds.length] : undefined,
+        act.resource !== "Auth"
+          ? customerIds[i % customerIds.length]
+          : undefined,
     });
   }
   return logs;
@@ -235,7 +270,10 @@ export default function AuditLogs() {
         <div className="admin-audit-search">
           <SearchBar
             value={search}
-            onChange={(v) => { setSearch(v); setPage(1); }}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
             placeholder="Search by log ID, actor, action or resource…"
           />
         </div>
@@ -247,7 +285,10 @@ export default function AuditLogs() {
               { value: "all", label: "All actors" },
               ...actors.map((a) => ({ value: a, label: a })),
             ]}
-            onChange={(v) => { setActor(v); setPage(1); }}
+            onChange={(v) => {
+              setActor(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Action type"
@@ -256,7 +297,10 @@ export default function AuditLogs() {
               { value: "all", label: "All actions" },
               ...actions.map((a) => ({ value: a, label: a })),
             ]}
-            onChange={(v) => { setAction(v); setPage(1); }}
+            onChange={(v) => {
+              setAction(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Outcome"
@@ -267,7 +311,10 @@ export default function AuditLogs() {
               { value: "Failure", label: "Failure" },
               { value: "Warning", label: "Warning" },
             ]}
-            onChange={(v) => { setOutcome(v); setPage(1); }}
+            onChange={(v) => {
+              setOutcome(v);
+              setPage(1);
+            }}
           />
           <div />
         </div>

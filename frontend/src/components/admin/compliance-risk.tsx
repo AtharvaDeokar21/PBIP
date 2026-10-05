@@ -61,7 +61,8 @@ function generateComplianceAlerts(
       status: "Open",
       dueDate: "2026-10-10",
       raisedAt: `${asOf}T08:56:00+05:30`,
-      description: "Periodic customer review is 15 days past the due date. Customer documents must be re-verified.",
+      description:
+        "Periodic customer review is 15 days past the due date. Customer documents must be re-verified.",
       assignedTo: "Ravi Kumar",
     },
     {
@@ -74,7 +75,8 @@ function generateComplianceAlerts(
       status: "Open",
       dueDate: "2026-10-12",
       raisedAt: `2026-10-04T14:08:00+05:30`,
-      description: "Supporting documents for the current account are outdated. Updated proof of address required.",
+      description:
+        "Supporting documents for the current account are outdated. Updated proof of address required.",
       assignedTo: "Ravi Kumar",
     },
     {
@@ -87,7 +89,8 @@ function generateComplianceAlerts(
       status: "In review",
       dueDate: "2026-10-08",
       raisedAt: `2026-10-03T11:00:00+05:30`,
-      description: "Multiple high-value transactions to an unregistered offshore entity detected in Q3.",
+      description:
+        "Multiple high-value transactions to an unregistered offshore entity detected in Q3.",
       assignedTo: "Ravi Kumar",
     },
     {
@@ -100,7 +103,8 @@ function generateComplianceAlerts(
       status: "In review",
       dueDate: "2026-10-15",
       raisedAt: `2026-10-02T09:30:00+05:30`,
-      description: "Cash transaction report must be filed for transactions above ₹10,00,000 in October.",
+      description:
+        "Cash transaction report must be filed for transactions above ₹10,00,000 in October.",
       assignedTo: "Ravi Kumar",
     },
     {
@@ -113,7 +117,8 @@ function generateComplianceAlerts(
       status: "In review",
       dueDate: "2026-10-06",
       raisedAt: `2026-10-01T16:00:00+05:30`,
-      description: "Customer name appears in an updated sanctions cross-reference. Escalation mandated within 48 hours.",
+      description:
+        "Customer name appears in an updated sanctions cross-reference. Escalation mandated within 48 hours.",
       assignedTo: "Ravi Kumar",
     },
     {
@@ -126,7 +131,8 @@ function generateComplianceAlerts(
       status: "Resolved",
       dueDate: "2026-09-30",
       raisedAt: `2026-09-25T10:00:00+05:30`,
-      description: "Declared income inconsistent with transaction volume. Customer submitted revised income proof.",
+      description:
+        "Declared income inconsistent with transaction volume. Customer submitted revised income proof.",
       assignedTo: "Ravi Kumar",
     },
     {
@@ -139,7 +145,8 @@ function generateComplianceAlerts(
       status: "Resolved",
       dueDate: "2026-09-28",
       raisedAt: `2026-09-22T13:00:00+05:30`,
-      description: "Daily transaction count exceeded permissible threshold. Account temporarily rate-limited.",
+      description:
+        "Daily transaction count exceeded permissible threshold. Account temporarily rate-limited.",
       assignedTo: "Ravi Kumar",
     },
   ];
@@ -195,16 +202,26 @@ export default function ComplianceRisk() {
   if (error || !data) return <ErrorState message={error} retry={refresh} />;
 
   const openCount = complianceAlerts.filter((a) => a.status === "Open").length;
-  const criticalCount = complianceAlerts.filter((a) => a.severity === "Critical").length;
-  const resolvedCount = complianceAlerts.filter((a) => a.status === "Resolved").length;
-  const highRiskCustomers = data.customers.filter((c) => c.risk === "High" || c.risk === "Critical").length;
+  const criticalCount = complianceAlerts.filter(
+    (a) => a.severity === "Critical",
+  ).length;
+  const resolvedCount = complianceAlerts.filter(
+    (a) => a.status === "Resolved",
+  ).length;
+  const highRiskCustomers = data.customers.filter(
+    (c) => c.risk === "High" || c.risk === "Critical",
+  ).length;
 
-  const categoryRows = ["KYC", "AML", "Reporting", "Documentation", "Transaction"].map(
-    (label) => ({
-      label: CATEGORY_LABELS[label] || label,
-      value: complianceAlerts.filter((a) => a.category === label).length,
-    }),
-  );
+  const categoryRows = [
+    "KYC",
+    "AML",
+    "Reporting",
+    "Documentation",
+    "Transaction",
+  ].map((label) => ({
+    label: CATEGORY_LABELS[label] || label,
+    value: complianceAlerts.filter((a) => a.category === label).length,
+  }));
 
   const riskRows = ["Low", "Medium", "High", "Critical"].map((label) => ({
     label,
@@ -249,7 +266,8 @@ export default function ComplianceRisk() {
                 : "No critical compliance exceptions at this time."}
             </h2>
             <p>
-              {openCount} open alerts · {highRiskCustomers} high-risk customers · {resolvedCount} resolved this period.
+              {openCount} open alerts · {highRiskCustomers} high-risk customers
+              · {resolvedCount} resolved this period.
             </p>
           </div>
         </div>
@@ -303,7 +321,8 @@ export default function ComplianceRisk() {
         >
           <HorizontalBars rows={riskRows} />
           <p className="admin-chart-caption">
-            Risk levels are derived from transaction patterns, profile data and alert history.
+            Risk levels are derived from transaction patterns, profile data and
+            alert history.
           </p>
         </ChartCard>
       </div>
@@ -319,7 +338,14 @@ export default function ComplianceRisk() {
       >
         <DataTable
           label="High-risk customers"
-          headings={["Customer", "Segment", "Risk score", "Risk level", "Open alerts", "Action"]}
+          headings={[
+            "Customer",
+            "Segment",
+            "Risk score",
+            "Risk level",
+            "Open alerts",
+            "Action",
+          ]}
         >
           {data.customers
             .filter((c) => c.risk === "High" || c.risk === "Critical")
@@ -330,7 +356,10 @@ export default function ComplianceRisk() {
                   <td>
                     <div className="admin-customer-cell">
                       <span className="admin-customer-avatar">
-                        {c.name.split(" ").map((n) => n[0]).join("")}
+                        {c.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
                       </span>
                       <div>
                         <strong>{c.name}</strong>
@@ -341,7 +370,9 @@ export default function ComplianceRisk() {
                   <td>{c.segment}</td>
                   <td>
                     <div className="admin-risk-bar-cell">
-                      <span className="admin-risk-score-pill">{c.riskScore}</span>
+                      <span className="admin-risk-score-pill">
+                        {c.riskScore}
+                      </span>
                       <div className="admin-risk-mini-bar">
                         <span
                           style={{
@@ -388,7 +419,10 @@ export default function ComplianceRisk() {
         <div className="admin-audit-search">
           <SearchBar
             value={search}
-            onChange={(v) => { setSearch(v); setPage(1); }}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
             placeholder="Search by alert ID, customer or type…"
           />
         </div>
@@ -404,7 +438,10 @@ export default function ComplianceRisk() {
               { value: "Documentation", label: "Documentation" },
               { value: "Transaction", label: "Transaction Monitoring" },
             ]}
-            onChange={(v) => { setCategory(v); setPage(1); }}
+            onChange={(v) => {
+              setCategory(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Severity"
@@ -416,7 +453,10 @@ export default function ComplianceRisk() {
               { value: "Medium", label: "Medium" },
               { value: "Low", label: "Low" },
             ]}
-            onChange={(v) => { setSeverity(v); setPage(1); }}
+            onChange={(v) => {
+              setSeverity(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Status"
@@ -427,13 +467,17 @@ export default function ComplianceRisk() {
               { value: "In review", label: "In review" },
               { value: "Resolved", label: "Resolved" },
             ]}
-            onChange={(v) => { setStatus(v); setPage(1); }}
+            onChange={(v) => {
+              setStatus(v);
+              setPage(1);
+            }}
           />
           <div />
         </div>
         <div className="admin-filter-caption">
           <span>
-            {filtered.length} alert{filtered.length !== 1 ? "s" : ""} match current filters
+            {filtered.length} alert{filtered.length !== 1 ? "s" : ""} match
+            current filters
           </span>
           <button className="text-link" onClick={resetFilters}>
             <Filter size={12} /> Reset filters
@@ -450,7 +494,16 @@ export default function ComplianceRisk() {
           <>
             <DataTable
               label="Compliance alert register"
-              headings={["Alert ID", "Customer", "Type", "Category", "Severity", "Status", "Due date", "Raised"]}
+              headings={[
+                "Alert ID",
+                "Customer",
+                "Type",
+                "Category",
+                "Severity",
+                "Status",
+                "Due date",
+                "Raised",
+              ]}
             >
               {paginated.map((alert) => {
                 const isPastDue =
@@ -491,8 +544,7 @@ export default function ComplianceRisk() {
                     <td
                       className={`admin-nowrap ${isPastDue ? "admin-overdue" : ""}`}
                     >
-                      {isPastDue && <AlertTriangle size={11} />}{" "}
-                      {alert.dueDate}
+                      {isPastDue && <AlertTriangle size={11} />} {alert.dueDate}
                     </td>
                     <td className="admin-nowrap">
                       {localDate(alert.raisedAt, true)} IST

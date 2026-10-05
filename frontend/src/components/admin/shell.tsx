@@ -91,7 +91,9 @@ export default function AdminShell({
               {pathname.startsWith(link.href) && <ChevronRight size={15} />}
             </Link>
           ))}
-          <div className="admin-nav-label admin-nav-section-label">SECURITY</div>
+          <div className="admin-nav-label admin-nav-section-label">
+            SECURITY
+          </div>
           {links2.map((link) => (
             <Link
               key={link.href}

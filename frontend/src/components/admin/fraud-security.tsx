@@ -49,7 +49,6 @@ type SecurityEvent = {
   device: string;
 };
 
-
 const EVENT_TYPE_ICONS: Record<string, LucideIcon> = {
   "Unusual login": Lock,
   "Multiple failures": Lock,
@@ -87,7 +86,8 @@ function generateSecurityEvents(
       severity: "High",
       status: "In review",
       detectedAt: `${asOf}T08:18:00+05:30`,
-      description: "Transfer to an unregistered beneficiary exceeding daily limit.",
+      description:
+        "Transfer to an unregistered beneficiary exceeding daily limit.",
       location: "Mumbai, IN",
       device: "Chrome / Windows",
     },
@@ -100,7 +100,8 @@ function generateSecurityEvents(
       severity: "High",
       status: "In review",
       detectedAt: `${asOf}T07:20:00+05:30`,
-      description: "Seven consecutive login failures detected within 4 minutes.",
+      description:
+        "Seven consecutive login failures detected within 4 minutes.",
       location: "Bengaluru, IN",
       device: "Firefox / Linux",
     },
@@ -265,7 +266,8 @@ export default function FraudSecurityMonitoring() {
                 : "All critical threats are under control."}
             </h2>
             <p>
-              {openCount} open events · {fraudAlerts.length} active fraud alerts · monitoring live across all channels.
+              {openCount} open events · {fraudAlerts.length} active fraud alerts
+              · monitoring live across all channels.
             </p>
           </div>
         </div>
@@ -329,14 +331,26 @@ export default function FraudSecurityMonitoring() {
         }
       >
         {fraudAlerts.length === 0 ? (
-          <EmptyState title="No active fraud alerts" message="All alerts have been resolved." />
+          <EmptyState
+            title="No active fraud alerts"
+            message="All alerts have been resolved."
+          />
         ) : (
           <DataTable
             label="Active fraud alerts"
-            headings={["Alert ID", "Customer", "Type", "Severity", "Status", "Detected"]}
+            headings={[
+              "Alert ID",
+              "Customer",
+              "Type",
+              "Severity",
+              "Status",
+              "Detected",
+            ]}
           >
             {fraudAlerts.map((alert) => {
-              const customer = data.customers.find((c) => c.id === alert.customerId);
+              const customer = data.customers.find(
+                (c) => c.id === alert.customerId,
+              );
               return (
                 <tr key={alert.id}>
                   <td>
@@ -375,7 +389,10 @@ export default function FraudSecurityMonitoring() {
         <div className="admin-audit-search">
           <SearchBar
             value={search}
-            onChange={(v) => { setSearch(v); setPage(1); }}
+            onChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
             placeholder="Search by event ID, customer, type or description…"
           />
         </div>
@@ -390,7 +407,10 @@ export default function FraudSecurityMonitoring() {
               { value: "Medium", label: "Medium" },
               { value: "Low", label: "Low" },
             ]}
-            onChange={(v) => { setSeverity(v); setPage(1); }}
+            onChange={(v) => {
+              setSeverity(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Status"
@@ -401,7 +421,10 @@ export default function FraudSecurityMonitoring() {
               { value: "In review", label: "In review" },
               { value: "Resolved", label: "Resolved" },
             ]}
-            onChange={(v) => { setStatus(v); setPage(1); }}
+            onChange={(v) => {
+              setStatus(v);
+              setPage(1);
+            }}
           />
           <FilterDropdown
             label="Channel"
@@ -413,13 +436,17 @@ export default function FraudSecurityMonitoring() {
               { value: "ATM", label: "ATM" },
               { value: "API", label: "API" },
             ]}
-            onChange={(v) => { setChannel(v); setPage(1); }}
+            onChange={(v) => {
+              setChannel(v);
+              setPage(1);
+            }}
           />
           <div />
         </div>
         <div className="admin-filter-caption">
           <span>
-            {filtered.length} event{filtered.length !== 1 ? "s" : ""} match current filters
+            {filtered.length} event{filtered.length !== 1 ? "s" : ""} match
+            current filters
           </span>
           <button className="text-link" onClick={resetFilters}>
             <Filter size={12} /> Reset filters
@@ -435,7 +462,16 @@ export default function FraudSecurityMonitoring() {
           <>
             <DataTable
               label="Security events"
-              headings={["Event ID", "Customer", "Type", "Channel", "Severity", "Status", "Location", "Detected"]}
+              headings={[
+                "Event ID",
+                "Customer",
+                "Type",
+                "Channel",
+                "Severity",
+                "Status",
+                "Location",
+                "Detected",
+              ]}
             >
               {paginated.map((ev) => {
                 const Icon = EVENT_TYPE_ICONS[ev.eventType] || ShieldAlert;
