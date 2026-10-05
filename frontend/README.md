@@ -114,29 +114,50 @@ Checks cover navigation, desktop/mobile layouts, account filtering, payment vali
 ## Source structure
 
 ```text
-src/
-  app/
-    page.tsx                      Landing page
-    layout.tsx                    Metadata and global layout
-    globals.css                   Design tokens, layouts and responsive styles
-    login/                        Customer login route
-    register/                     Customer sign-up route
-    admin/login/                  Admin login route
-    forgot-password/              Recovery route
-    session-expired/              Session-expired route
-    portal/
-      layout.tsx                  Shared customer shell
-      [section]/page.tsx          Customer route registry
-  components/
-    auth-page.tsx                 Customer/admin authentication screens
-    portal-shell.tsx              Navigation, header and assistant
-    customer-pages.tsx            Customer module implementations
-    ui.tsx                        Brand, currency and shared primitives
-  lib/
-    sample-data.ts                Illustrative accounts, transactions and products
-tests/customer.spec.ts            Browser checks
-playwright.config.ts              Test server and browser configuration
+frontend/
+  package.json                    Scripts and dependencies
+  next.config.ts                  Next.js configuration
+  playwright.config.ts            Browser-test configuration
+  tests/
+    customer.spec.ts               Customer portal browser checks
+    admin.spec.ts                  Admin portal browser checks
+  src/
+    app/
+      page.tsx                    Landing page
+      layout.tsx                  Metadata and global layout
+      globals.css                 Design tokens, layouts and responsive styles
+      login/page.tsx              Customer login route
+      register/page.tsx           Customer sign-up route
+      admin/login/page.tsx        Admin login route
+      admin/(workspace)/          Admin workspace route group
+        layout.tsx                Admin shell layout
+        dashboard/page.tsx        Admin dashboard
+        customers/page.tsx        Admin customer list
+        customers/[id]/page.tsx   Admin customer details
+        analytics/page.tsx        Admin analytics
+      forgot-password/page.tsx    Recovery route
+      session-expired/page.tsx    Session-expired route
+      not-found.tsx               Not-found page
+      portal/
+        layout.tsx                Shared customer portal layout
+        page.tsx                  Portal entry/redirect
+        [section]/page.tsx        Customer section route registry
+    components/
+      auth-page.tsx               Customer/admin authentication screens
+      portal-shell.tsx            Customer navigation, header and assistant
+      customer-pages.tsx           Customer module implementations
+      ui.tsx                      Shared brand, currency and UI primitives
+      admin/                      Admin shell, pages, UI and data hooks
+    lib/
+      sample-data.ts              Illustrative customer data
+      admin/
+        types.ts                  Admin data types
+        service.ts                Admin data access/service layer
+        sample-data.ts            Fictional admin records
+        metrics.ts                Admin analytics calculations
 ```
+
+The `(workspace)` directory is a Next.js route group and does not appear in the public URL. Admin data currently comes from local sample-data services; there is no frontend API client yet.
 
 ## Team handoff
 
@@ -150,8 +171,67 @@ The Person 1 admin frontend now includes `/admin/dashboard`, `/admin/customers`,
 
 ## Connecting the backend
 
-The FastAPI backend has registration, login and current-user endpoints. The frontend does not call them yet, and inspected account/transfer endpoints are placeholders.
+The FastAPI backend exposes the endpoints listed below, but the frontend does not call them yet. The current interface uses sample data and local-only interactions.
 
 Integration work includes an agreed API/service layer, secure session handling, server-enforced authorization, protected routes, loading/error/retry states and replacing fixtures with consistent live records. Coordinate the frontend origin with backend CORS configuration: the frontend scripts bind to `127.0.0.1`, while the current backend allowlist uses `localhost` origins.
 
 Do not place real customer information behind the current public routes. Keep secrets server-side and follow the repository's review rule for shared API or schema changes.
+
+## Backend API endpoints
+
+The API is served by FastAPI. The development base URL is `http://localhost:8000`, and the versioned routes use the `/api/v1` prefix. For example, `GET /api/v1/accounts` is available at `http://localhost:8000/api/v1/accounts`. The backend's interactive API documentation is at `http://localhost:8000/docs`.
+
+When frontend integration is implemented, configure the API base URL through an environment variable such as `NEXT_PUBLIC_API_URL` rather than hardcoding it in components. No API client or such environment variable is currently required by this sample-data UI.
+
+Unless marked public, endpoints require a bearer access token returned by `POST /api/v1/auth/login`. Customer endpoints additionally require a customer identity; internal endpoints enforce their listed roles. The API is the authority for access control.
+
+| Area | Method | Endpoint | Purpose / access |
+| --- | --- | --- | --- |
+| Health | `GET` | `/api/v1/health` | Health and database status; public |
+| Authentication | `POST` | `/api/v1/auth/register` | Register a customer; public |
+| Authentication | `POST` | `/api/v1/auth/login` | Authenticate and return an access token; public |
+| Current user | `GET` | `/api/v1/me` | Return the authenticated user |
+| Customer | `GET` | `/api/v1/customers/me` | Get the current customer's profile |
+| Customer | `PATCH` | `/api/v1/customers/me` | Update the current customer's profile |
+| Customer | `GET` | `/api/v1/customers/me/summary` | Get the current customer's financial summary |
+| Accounts | `GET` | `/api/v1/accounts` | List the current customer's accounts |
+| Accounts | `GET` | `/api/v1/accounts/{account_id}` | Get an account |
+| Accounts | `GET` | `/api/v1/accounts/{account_id}/transactions` | List an account's transactions; supports transaction filters/pagination |
+| Transactions | `GET` | `/api/v1/transactions/{transaction_id}` | Get a transaction |
+| Payees | `POST` | `/api/v1/payees` | Create a payee |
+| Payees | `GET` | `/api/v1/payees` | List payees |
+| Payees | `PATCH` | `/api/v1/payees/{payee_id}` | Update a payee |
+| Payees | `DELETE` | `/api/v1/payees/{payee_id}` | Delete a payee |
+| Transfers | `POST` | `/api/v1/transfers` | Create a transfer |
+| Transfers | `GET` | `/api/v1/transfers` | List transfers; supports `page`, `page_size` and `status` |
+| Transfers | `GET` | `/api/v1/transfers/{transfer_id}` | Get a transfer |
+| Transfers | `POST` | `/api/v1/transfers/{transfer_id}/cancel` | Cancel a transfer |
+| Bills | `GET` | `/api/v1/billers` | List billers; supports `category` and `provider_code` filters |
+| Bills | `POST` | `/api/v1/bills/pay` | Pay a bill |
+| Bills | `GET` | `/api/v1/bills/history` | List bill-payment history; supports `page` and `page_size` |
+| Loans | `GET` | `/api/v1/loans/products` | List loan products; supports `loan_type` filter |
+| Loans | `GET` | `/api/v1/loans/products/{product_id}` | Get a loan product |
+| Loans | `POST` | `/api/v1/loans/eligibility` | Check the current customer's loan eligibility |
+| Loans | `POST` | `/api/v1/loans/applications` | Submit a loan application |
+| Loans | `GET` | `/api/v1/loans/applications` | List the current customer's loan applications |
+| Loans | `GET` | `/api/v1/loans/applications/{application_id}` | Get a loan application |
+| Investments | `GET` | `/api/v1/investments/products` | List investment products; supports `product_type` and `risk_level` filters |
+| Investments | `GET` | `/api/v1/investments/products/{product_id}` | Get an investment product |
+| Investments | `GET` | `/api/v1/investments` | List the current customer's holdings |
+| Investments | `POST` | `/api/v1/investments` | Purchase an investment |
+| Insurance | `GET` | `/api/v1/insurance/products` | List insurance products; supports `insurance_type` and `risk_level` filters |
+| Insurance | `GET` | `/api/v1/insurance/products/{product_id}` | Get an insurance product |
+| Recommendations | `GET` | `/api/v1/recommendations` | List recommendations for the current customer |
+| Analytics | `GET` | `/api/v1/analytics/overview` | Internal analytics overview; Relationship Manager or Admin |
+| Analytics | `GET` | `/api/v1/analytics/customers` | Internal customer analytics; Relationship Manager or Admin |
+| Analytics | `GET` | `/api/v1/analytics/transactions` | Internal transaction analytics; Relationship Manager or Admin |
+| Fraud | `GET` | `/api/v1/fraud/alerts` | List fraud alerts; Fraud Analyst or Admin |
+| Fraud | `GET` | `/api/v1/fraud/alerts/{alert_id}` | Get a fraud alert; Fraud Analyst or Admin |
+| Fraud | `GET` | `/api/v1/fraud/customers/{customer_id}/risk` | Get customer fraud risk; Fraud Analyst or Admin |
+| Compliance | `GET` | `/api/v1/compliance/alerts` | List compliance alerts; Compliance Officer or Admin |
+| Compliance | `GET` | `/api/v1/compliance/audit-logs` | List audit logs; Compliance Officer or Admin |
+| Compliance | `GET` | `/api/v1/compliance/security-events` | List security events; Compliance Officer or Admin |
+| AI assistant | `POST` | `/api/v1/ai/chat` | Submit a chat message |
+| AI assistant | `GET` | `/api/v1/ai/conversations` | List conversations |
+
+The analytics, fraud, compliance and AI handlers currently return placeholder responses. The AI API currently has no conversation-detail route. Check the backend's `/docs` and response schemas when integrating; this table describes the routes, not a guarantee that every workflow is complete. Use the backend OpenAPI contract for exact request/response fields.
