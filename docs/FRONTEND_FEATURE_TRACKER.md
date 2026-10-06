@@ -171,9 +171,20 @@ Browser save-as-PDF is an interim frontend convenience, not the official PDF sta
 - [ ] Active sessions/devices and revoke session workflow.
 - [ ] Production logout and security preference enforcement.
 
-## Internal banking portal — login UI started, operations TODO, suggested Developer B
+## Internal banking portal — Person 1 frontend implemented
 
-`/admin/login` is implemented as a frontend form. Its authentication integration, MFA and password recovery remain TODO. All other routes below are proposed and unimplemented. Use an `/admin` layout separate from `/portal`.
+The following scoped interfaces are complete using shared fictional records. Admin login opens this workspace; backend authentication, protected routes, RBAC and live data remain TODO. The separate admin layout includes responsive navigation and customer search.
+
+- [x] `/admin/dashboard`: six KPI cards, recent alerts, behaviour charts and activity links.
+- [x] `/admin/customers`: name/ID/email search, risk/alert/segment filters, sorting, pagination and detail links.
+- [x] `/admin/customers/[id]`: overview, masked accounts, transactions, spending/income trends, read-only products, risk, incident history, behaviour and a filtered analytics link.
+- [x] `/admin/analytics`: 7/30/90-day and custom periods; segment/product/customer filters; segmentation, spending, income, affinity, page visits, clickstream, session and customer summaries.
+- [x] Loading, retry, empty and unknown-customer states; desktop, tablet and mobile layouts.
+- [x] Customer directory shows active account counts rather than combined balances; balance sorting and the directory balance column are removed. Account balances remain within individual customer account details. Admin sidebar has no public-home redirect.
+- [x] Behaviour analytics shows each customer's top spending category for the selected period rather than their monthly spending amount. Removed the average income amount and the Income trend / Spending trend charts; aggregate income bands and spending categories remain.
+- [ ] Live admin APIs and employee authentication/authorization.
+
+`frontend/src/lib/admin/service.ts` is the data integration seam. Types, fixtures and derived metrics live beside it. Continue other modules below separately; this delivery does not implement operational actions or investigation workflows.
 
 | Module | Proposed routes | Full checklist |
 | --- | --- | --- |
@@ -219,7 +230,7 @@ Repository inspection found real `POST /api/v1/auth/register`, `POST /api/v1/aut
 - Customer page implementations: `frontend/src/components/customer-pages.tsx`; route registry in `src/app/portal/[section]/page.tsx`.
 - Fixtures: `frontend/src/lib/sample-data.ts`.
 - Shared tokens/layouts: `frontend/src/app/globals.css`; shared primitives: `src/components/ui.tsx`.
-- Internal team should create its own `src/app/admin/` and `src/components/admin/` files.
+- Admin workspace: `frontend/src/app/admin/(workspace)/`; shared admin components: `frontend/src/components/admin/`; data contracts/service: `frontend/src/lib/admin/`.
 - Before independently extending a customer module, move that component into `src/components/customer/<module>.tsx` in a small agreed refactor. This prevents two people editing the same large starter file.
 - Never commit credentials, `.env`, `.next`, `node_modules`, caches or generated reports.
 
@@ -235,6 +246,13 @@ Repository inspection found real `POST /api/v1/auth/register`, `POST /api/v1/aut
 - [ ] Update this tracker and shared design notes in the same change.
 
 ## Change log
+
+### Person 1 admin frontend — 2026-10-05
+
+- Production build and TypeScript validation passed.
+- Playwright: **19/19 passed**, including five admin checks and fourteen customer checks.
+- Verified desktop, tablet and mobile navigation; combined filters, sorting, pagination, details, custom periods, unknown customers and page overflow.
+- Completed interfaces use shared fixtures. Live APIs, authentication, RBAC and operational modules remain pending.
 
 ### Verification for the initial frontend delivery
 

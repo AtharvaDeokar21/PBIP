@@ -129,6 +129,9 @@ npm start
 | Landing | `/` |
 | Customer login / sign-up | `/login`, `/register` |
 | Admin login | `/admin/login` |
+| Admin dashboard | `/admin/dashboard` |
+| Customer directory / details | `/admin/customers`, `/admin/customers/[id]` |
+| Admin behaviour analytics | `/admin/analytics` |
 | Password recovery / session expired | `/forgot-password`, `/session-expired` |
 | Customer dashboard | `/portal/dashboard` |
 | Accounts | `/portal/accounts` |
@@ -139,4 +142,4 @@ npm start
 | Analytics / recommendations | `/portal/analytics`, `/portal/recommendations` |
 | Notifications / settings | `/portal/notifications`, `/portal/settings` |
 
-The frontend currently uses sample data. Customer login opens the workspace without backend authentication; live banking integration is pending.
+The frontend currently uses sample data. Customer and admin login open their respective workspaces without backend authentication; live integration is pending.

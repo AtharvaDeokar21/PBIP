@@ -74,6 +74,10 @@ Warm but precise. Short phrases such as “Your money at a glance” or “One l
 
 > Build the [FEATURE NAME] page for Credora using the existing Next.js App Router, TypeScript and Tailwind foundation. First read docs/FRONTEND_FEATURE_TRACKER.md and inspect existing shared components and globals.css. Follow docs/FRONTEND_DESIGN_SYSTEM.md. Reuse the Credora purple (#7134A3), deep purple (#4B1C72), lavender (#F1E9F8), white cards, off-white canvas (#F8F7FA), ink (#292332) and muted text (#797281). Use Lucide icons, the existing sidebar/header, 13–16px card radii, restrained borders/shadows and responsive grids. Maintain professional banking hierarchy, labelled inputs, readable monetary values, keyboard access and focus outlines. Do not add SBI branding. Implement all visible actions and relevant validation/empty/loading/error states. Clearly distinguish sample from live actions. Do not change shared API contracts without review. Claim the feature row, avoid duplicating completed modules, and mark actual completion plus remaining integration work in the tracker after checking the build.
 
+## Internal workspace components
+
+Admin pages reuse Credora colours and Lucide icons through `frontend/src/components/admin/ui.tsx`. The isolated workspace styles live in `frontend/src/app/admin/(workspace)/admin.css`. Reuse its KPI cards, chart panels, risk/status badges, filters, table wrappers, pagination and loading/error/empty states. Keep customer details and products read-only in the Person 1 scope. Customer links use stable IDs, and analytics links preserve customer filters.
+
 ## Review before handing off
 
 Check desktop and narrow-mobile layouts, sidebar behavior, direct route refresh, no accidental horizontal page overflow, input validation, control labels, action targets and honest outcome messages. Screenshot review and contrast/accessibility verification remain necessary before production sign-off.
