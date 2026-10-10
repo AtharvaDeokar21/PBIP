@@ -105,11 +105,25 @@ async def generate_behaviour_events(
             )
 
             session_size = rng.randint(min(2, events_left), min(5, events_left))
+            session_duration_seconds = rng.randint(30, 900)  # 30s to 15m
+
             for offset in range(session_size):
                 ts = session_start + timedelta(minutes=offset * rng.randint(1, 8))
                 event_type = rng.choices(EVENT_TYPES, weights=EVENT_WEIGHTS, k=1)[0]
                 page = rng.choices(PAGES, weights=PAGE_WEIGHTS[cust.segment], k=1)[0]
                 action = rng.choice(ACTIONS)
+
+                prod_cat = None
+                if page == "/accounts" or page == "/dashboard":
+                    prod_cat = "Savings"
+                elif page == "/loans":
+                    prod_cat = "Loans"
+                elif page == "/investments":
+                    prod_cat = "Investments"
+                elif page == "/insurance":
+                    prod_cat = "Insurance"
+                elif rng.random() > 0.7:
+                    prod_cat = rng.choice(["Savings", "Loans", "Investments", "Insurance"])
 
                 event = BehaviourEvent(
                     id=uuid.UUID(int=rng.getrandbits(128)),
@@ -118,6 +132,8 @@ async def generate_behaviour_events(
                     event_type=event_type,
                     page=page,
                     action=action,
+                    product_category=prod_cat,
+                    session_duration=session_duration_seconds,
                     event_metadata={
                         "device_type": device,
                         "location": cust.city,
