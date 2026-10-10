@@ -14,9 +14,11 @@ class BehaviourEvent(UUIDPrimaryKeyMixin, Base):
     customer_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("customers.id"), index=True, nullable=False)
     session_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), index=True)
     event_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    page: Mapped[str | None] = mapped_column(String(200))
+    page: Mapped[str | None] = mapped_column(String(200), index=True)
     action: Mapped[str | None] = mapped_column(String(200))
     product_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    product_category: Mapped[str | None] = mapped_column(String(50))
+    session_duration: Mapped[int | None]
     event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, default=dict, nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(50))
     device_type: Mapped[str | None] = mapped_column(String(50))

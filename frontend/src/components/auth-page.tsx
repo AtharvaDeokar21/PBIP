@@ -14,24 +14,50 @@ import {
 } from "lucide-react";
 import { Brand } from "./ui";
 
+import { adminLogin, storeToken } from "@/lib/admin/api";
+
 type AuthMode =
   "login" | "register" | "forgot-password" | "session-expired" | "admin-login";
 export default function AuthPage({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const isAdmin = mode === "admin-login";
   const isRegister = mode === "register";
   const isRecovery = mode === "forgot-password";
   const expired = mode === "session-expired";
-  function submit(event: React.FormEvent<HTMLFormElement>) {
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (mode === "login" || mode === "admin-login") {
-      router.push(
-        mode === "admin-login" ? "/admin/dashboard" : "/portal/dashboard",
-      );
+
+    if (mode === "admin-login") {
+      const form = event.currentTarget;
+      const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+      const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+      setLoading(true);
+      setMessage("");
+      try {
+        const res = await adminLogin(email, password);
+        if (res.role !== "ADMIN" && res.role !== "RELATIONSHIP_MANAGER") {
+          setMessage("Access denied. This portal is for administrators only.");
+          return;
+        }
+        storeToken(res.access_token);
+        router.push("/admin/dashboard");
+      } catch {
+        setMessage("Invalid email or password. Please try again.");
+      } finally {
+        setLoading(false);
+      }
       return;
     }
+
+    if (mode === "login") {
+      router.push("/portal/dashboard");
+      return;
+    }
+
     setMessage(
       isRecovery
         ? "Password recovery is not connected yet. No reset email has been sent."
@@ -40,6 +66,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
           : `${isAdmin ? "Admin" : "Customer"} sign-in is not connected yet. Your credentials have not been sent and no session has been started.`,
     );
   }
+
   return (
     <div className="auth-layout">
       <aside className="auth-story">
@@ -170,6 +197,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               <label>
                 {isAdmin ? "Administrator email" : "Email address"}
                 <input
+                  name="email"
                   required
                   type="email"
                   autoComplete="username"
@@ -184,6 +212,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   Password
                   <div className="password-input">
                     <input
+                      name="password"
                       required
                       type={visible ? "text" : "password"}
                       minLength={8}
@@ -227,7 +256,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   : isRegister
                     ? "Sign up"
                     : isAdmin
-                      ? "Admin login"
+                      ? loading ? "Signing in…" : "Admin login"
                       : "Log in"}
                 <ArrowRight size={17} />
               </button>

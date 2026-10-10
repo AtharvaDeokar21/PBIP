@@ -149,9 +149,10 @@ async def generate_customers(
     session: AsyncSession,
     num_customers: int = NUM_CUSTOMERS,
     seed: int = SEED,
+    write_to_db: bool = True,
 ) -> list[CustomerRecord]:
     """
-    Generate `num_customers` User + Customer rows and flush them to the DB.
+    Generate `num_customers` User + Customer rows and optionally flush them to the DB.
 
     Returns a list of :class:`CustomerRecord` objects used by downstream generators.
     """
@@ -241,10 +242,11 @@ async def generate_customers(
             )
         )
 
-    session.add_all(users)
-    await session.flush()
-    session.add_all(customers)
-    await session.flush()
+    if write_to_db:
+        session.add_all(users)
+        await session.flush()
+        session.add_all(customers)
+        await session.flush()
+        print(f"  [customers] inserted {len(users)} users + {len(customers)} customers")
 
-    print(f"  [customers] inserted {len(users)} users + {len(customers)} customers")
     return records
