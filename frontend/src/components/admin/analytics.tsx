@@ -9,14 +9,8 @@ import {
   ArrowUpRight,
   X,
 } from "lucide-react";
-import { useAdminData } from "./use-admin-data";
-import {
-  mean,
-  duration,
-  engagement,
-  periodBounds,
-  localDate,
-} from "@/lib/admin/metrics";
+import { useBehaviourAnalytics } from "./use-behaviour-analytics";
+import { duration, engagement, periodBounds, localDate } from "@/lib/admin/metrics";
 import {
   PageTitle,
   StatCard,
@@ -30,99 +24,79 @@ import {
   HorizontalBars,
   MiniTrend,
 } from "./ui";
+
 const all = (values: string[]) => [
   { value: "all", label: "All" },
   ...values.map((value) => ({ value, label: value })),
 ];
+
+function mean(arr: number[]) {
+  return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+}
+
 export default function Analytics() {
   const { params, update, reset } = useAdminQuery("/admin/analytics");
-  const { data, loading, error, refresh } = useAdminData();
+
   const period = params.get("period") || "30";
   const segment = params.get("segment") || "all";
   const product = params.get("product") || "all";
   const customerId = params.get("customer") || "all";
+
+  // Build API params from UI state
+  const apiParams = new URLSearchParams({ page_size: "50" });
+  if (segment !== "all") apiParams.set("segment", segment);
+  if (product !== "all") apiParams.set("product", product);
+  if (customerId !== "all") apiParams.set("customer_id", customerId);
+
+  const { data, filters, loading, error, refresh } = useBehaviourAnalytics(apiParams);
+
   if (loading) return <LoadingState />;
   if (error || !data) return <ErrorState message={error} retry={refresh} />;
-  const bounds = periodBounds(period, data.asOf);
+
+  const asOf = data.data_available_through;
+  const bounds = periodBounds(period, asOf);
   const from = period === "custom" ? params.get("from") || "" : bounds.from;
   const to = period === "custom" ? params.get("to") || "" : bounds.to;
   const valid = Boolean(from && to && from <= to);
-  const candidates = data.customers.filter(
-    (c) =>
-      (customerId === "all" || c.id === customerId) &&
-      (segment === "all" || c.segment === segment) &&
-      (product === "all" || c.interest === product),
-  );
-  const candidateIds = new Set(candidates.map((c) => c.id));
-  const sessions = valid
-    ? data.sessions.filter(
-        (s) =>
-          candidateIds.has(s.customerId) &&
-          s.date >= from &&
-          s.date <= to &&
-          (product === "all" || s.product === product),
-      )
-    : [];
-  const activeIds = new Set(sessions.map((s) => s.customerId));
-  const customers = candidates.filter((c) => activeIds.has(c.id));
-  const productRows = ["Savings", "Loans", "Investments", "Insurance"]
-    .map((label) => {
-      const records = sessions.filter((s) => s.product === label);
-      return {
-        label,
-        value: records.reduce((sum, s) => sum + s.views, 0),
-        clicks: records.reduce((sum, s) => sum + s.clicks, 0),
-        customers: new Set(records.map((s) => s.customerId)).size,
-        engagement: engagement(records),
-      };
-    })
-    .sort((a, b) => b.value - a.value);
-  const pageNames = Array.from(new Set(sessions.flatMap((s) => s.path)));
-  const pageRows = pageNames
-    .map((label) => {
-      const records = sessions.filter((s) => s.path.includes(label));
-      return {
-        label,
-        visits: records.length,
-        customers: new Set(records.map((s) => s.customerId)).size,
-        seconds: mean(records.map((s) => s.seconds / s.path.length)),
-      };
-    })
-    .sort((a, b) => b.visits - a.visits);
-  const flowNames = Array.from(
-    new Set(sessions.map((s) => s.path.join(" → "))),
-  );
-  const transactionRows = data.transactions.filter(
-    (t) => activeIds.has(t.customerId) && t.date >= from && t.date <= to,
-  );
-  function topSpendingCategory(customerId: string) {
-    const totals = new Map<string, number>();
-    transactionRows
-      .filter((t) => t.customerId === customerId && t.type === "Debit")
-      .forEach((t) => {
-        totals.set(t.category, (totals.get(t.category) || 0) + t.amount);
-      });
-    return (
-      [...totals.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ||
-      "No spending recorded"
-    );
-  }
-  const spendingRows = [
-    "Food",
-    "Shopping",
-    "Travel",
-    "Utilities",
-    "Entertainment",
-    "Other",
-  ].map((label) => ({
-    label,
-    value: transactionRows
-      .filter((t) => t.type === "Debit" && t.category === label)
-      .reduce((sum, t) => sum + t.amount, 0),
-  }));
-  const months = Array.from(
-    new Set(sessions.map((s) => s.date.slice(0, 7))),
-  ).sort();
+
+  // KPIs direct from backend
+  const kpis = data.kpis;
+
+  // Customer list from behaviour items
+  const customers = data.customer_behaviour.items;
+
+  // Sessions by month for trend chart
+  const months = data.session_analytics.sessions_by_month;
+
+  // Segmentation
+  const segRows = data.segmentation.map((s) => ({ label: s.segment, value: s.count }));
+
+  // Spending patterns
+  const spendRows = data.spending_patterns.map((s) => ({ label: s.category, value: s.amount }));
+
+  // Income bands
+  const incomeRows = data.income_patterns.map((b) => ({ label: b.band, value: b.count }));
+
+  // Product affinity
+  const affinityRows = data.product_affinity;
+
+  // Page visits
+  const pageRows = data.page_visits;
+
+  // Navigation journeys
+  const journeyRows = data.navigation_journeys;
+
+  const hasSessions = data.session_analytics.total_sessions > 0;
+
+  // Customer filter options
+  const customerOptions = [
+    { value: "all", label: "All customers" },
+    ...(filters?.customers ?? []).map((c) => ({ value: c.id, label: c.name })),
+  ];
+
+  const segmentOptions = all(filters?.segments ?? ["Standard", "Premium", "High Value"]);
+  const productOptions = all(filters?.products ?? ["Savings", "Loans", "Investments", "Insurance"]);
+
   return (
     <>
       <PageTitle
@@ -131,7 +105,7 @@ export default function Analytics() {
       />
       <ChartCard
         title="Explore your customer base"
-        subtitle={`Records available through ${localDate(data.asOf)} · Filters apply across all sections`}
+        subtitle={`Records available through ${localDate(asOf)} · Filters apply across all sections`}
       >
         <div className="admin-filters analytics">
           <FilterDropdown
@@ -148,22 +122,19 @@ export default function Analytics() {
           <FilterDropdown
             label="Customer segment"
             value={segment}
-            options={all(["Standard", "Premium", "High Value"])}
+            options={segmentOptions}
             onChange={(value) => update("segment", value)}
           />
           <FilterDropdown
             label="Product interest"
             value={product}
-            options={all(["Loans", "Savings", "Investments", "Insurance"])}
+            options={productOptions}
             onChange={(value) => update("product", value)}
           />
           <FilterDropdown
             label="Customer"
             value={customerId}
-            options={[
-              { value: "all", label: "All customers" },
-              ...data.customers.map((c) => ({ value: c.id, label: c.name })),
-            ]}
+            options={customerOptions}
             onChange={(value) => update("customer", value)}
           />
         </div>
@@ -175,7 +146,7 @@ export default function Analytics() {
                 aria-label="Analytics from date"
                 type="date"
                 value={from}
-                max={data.asOf}
+                max={asOf}
                 onChange={(e) => update("from", e.target.value)}
               />
             </label>
@@ -186,7 +157,7 @@ export default function Analytics() {
                 type="date"
                 value={to}
                 min={from}
-                max={data.asOf}
+                max={asOf}
                 onChange={(e) => update("to", e.target.value)}
               />
             </label>
@@ -202,56 +173,53 @@ export default function Analytics() {
             <span>
               Customer:{" "}
               <strong>
-                {data.customers.find((c) => c.id === customerId)?.name ||
-                  customerId}
+                {filters?.customers.find((c) => c.id === customerId)?.name ?? customerId}
               </strong>
             </span>
-            <button
-              className="text-link"
-              onClick={() => update("customer", "all")}
-            >
+            <button className="text-link" onClick={() => update("customer", "all")}>
               <X size={14} /> Clear customer
             </button>
           </div>
         )}
         <div className="admin-filter-caption">
           <span>
-            {valid
-              ? `${localDate(from)} – ${localDate(to)}`
-              : "Select a valid date range"}
+            {valid ? `${localDate(from)} – ${localDate(to)}` : "Select a valid date range"}
           </span>
           <button className="text-link" onClick={reset}>
             Reset filters
           </button>
         </div>
       </ChartCard>
+
+      {/* KPI Cards */}
       <div className="admin-stats four">
         <StatCard
           label="Active customers"
-          value={customers.length}
+          value={kpis.active_customers}
           icon={Users}
-          note="Unique customers in selected sessions"
+          note="Unique customers in selected period"
         />
         <StatCard
           label="Average session"
-          value={duration(mean(sessions.map((s) => s.seconds)))}
+          value={duration(kpis.avg_session_seconds)}
           icon={Clock}
-          note="Time spent across selected sessions"
+          note="Average session duration"
         />
         <StatCard
           label="Most interested product"
-          value={sessions.length ? productRows[0].label : "—"}
+          value={kpis.most_interested_product ?? "—"}
           icon={TrendingUp}
           note="Highest recorded product views"
         />
         <StatCard
           label="Average engagement"
-          value={`${engagement(sessions)}%`}
+          value={`${kpis.avg_engagement_pct}%`}
           icon={Activity}
           note="Average session click-to-view ratio"
         />
       </div>
-      {!sessions.length ? (
+
+      {!hasSessions ? (
         <ChartCard title="No activity in this selection">
           <EmptyState
             message="Choose another period, segment, product or customer to view recorded activity."
@@ -265,19 +233,14 @@ export default function Analytics() {
               title="Customer segmentation"
               subtitle="Active customers in the selected period"
             >
-              <HorizontalBars
-                rows={["Standard", "Premium", "High Value"].map((label) => ({
-                  label,
-                  value: customers.filter((c) => c.segment === label).length,
-                }))}
-              />
+              <HorizontalBars rows={segRows.length ? segRows : [{ label: "No data", value: 0 }]} />
             </ChartCard>
             <ChartCard
               title="Spending patterns"
               subtitle="Recorded debit amounts within the selected dates"
             >
-              {spendingRows.some((row) => row.value > 0) ? (
-                <HorizontalBars rows={spendingRows} money />
+              {spendRows.some((r) => r.value > 0) ? (
+                <HorizontalBars rows={spendRows} money />
               ) : (
                 <EmptyState
                   title="No recorded debit transactions"
@@ -289,30 +252,10 @@ export default function Analytics() {
               title="Income patterns"
               subtitle="Income baseline of active customer profiles"
             >
-              <HorizontalBars
-                rows={[
-                  {
-                    label: "Below ₹75,000",
-                    value: customers.filter((c) => c.income < 75000).length,
-                  },
-                  {
-                    label: "₹75,000–₹1,25,000",
-                    value: customers.filter(
-                      (c) => c.income >= 75000 && c.income <= 125000,
-                    ).length,
-                  },
-                  {
-                    label: "Above ₹1,25,000",
-                    value: customers.filter((c) => c.income > 125000).length,
-                  },
-                ]}
-              />
-              <p className="admin-chart-caption">
-                Income bands reflect profile baselines for active customers in
-                the selected period.
-              </p>
+              <HorizontalBars rows={incomeRows.length ? incomeRows : [{ label: "No data", value: 0 }]} />
             </ChartCard>
           </div>
+
           <div className="admin-grid two">
             <ChartCard
               title="Product interest & affinity"
@@ -320,23 +263,15 @@ export default function Analytics() {
             >
               <DataTable
                 label="Product affinity"
-                headings={[
-                  "Product",
-                  "Views",
-                  "Clicks",
-                  "Interested customers",
-                  "Engagement",
-                ]}
+                headings={["Product", "Views", "Clicks", "Interested customers", "Engagement"]}
               >
-                {productRows.map((row) => (
-                  <tr key={row.label}>
-                    <td>
-                      <strong>{row.label}</strong>
-                    </td>
-                    <td>{row.value}</td>
+                {affinityRows.map((row) => (
+                  <tr key={row.product}>
+                    <td><strong>{row.product}</strong></td>
+                    <td>{row.views}</td>
                     <td>{row.clicks}</td>
-                    <td>{row.customers}</td>
-                    <td>{row.engagement}%</td>
+                    <td>{row.interested_customers}</td>
+                    <td>{row.engagement_pct}%</td>
                   </tr>
                 ))}
               </DataTable>
@@ -348,49 +283,36 @@ export default function Analytics() {
               <div className="admin-session-metrics">
                 <div>
                   <span>Total sessions</span>
-                  <strong>{sessions.length}</strong>
+                  <strong>{data.session_analytics.total_sessions}</strong>
                 </div>
                 <div>
                   <span>Pages per session</span>
-                  <strong>
-                    {mean(sessions.map((s) => s.path.length)).toFixed(1)}
-                  </strong>
+                  <strong>{data.session_analytics.pages_per_session.toFixed(1)}</strong>
                 </div>
                 <div>
                   <span>Returning customers</span>
-                  <strong>
-                    {
-                      new Set(
-                        sessions
-                          .filter((s) => s.returning)
-                          .map((s) => s.customerId),
-                      ).size
-                    }
-                  </strong>
+                  <strong>{data.session_analytics.returning_customers}</strong>
                 </div>
                 <div>
                   <span>Average duration</span>
-                  <strong>
-                    {duration(mean(sessions.map((s) => s.seconds)))}
-                  </strong>
+                  <strong>{duration(data.session_analytics.avg_duration_seconds)}</strong>
                 </div>
               </div>
               <MiniTrend
-                rows={months.map((month) => ({
+                rows={months.map((m) => ({
                   label: new Intl.DateTimeFormat("en-IN", {
                     month: "short",
                     timeZone: "Asia/Kolkata",
-                  }).format(new Date(`${month}-01T12:00:00+05:30`)),
-                  value: sessions.filter((s) => s.date.startsWith(month))
-                    .length,
+                  }).format(new Date(`${m.month}-01T12:00:00+05:30`)),
+                  value: m.count,
                 }))}
               />
               <p className="admin-chart-caption">
-                Recorded sessions by month; partial periods reflect the chosen
-                dates.
+                Recorded sessions by month; partial periods reflect the chosen dates.
               </p>
             </ChartCard>
           </div>
+
           <div className="admin-grid two">
             <ChartCard
               title="Page visits"
@@ -401,11 +323,11 @@ export default function Analytics() {
                 headings={["Page", "Visits", "Unique customers", "Avg. time"]}
               >
                 {pageRows.map((row) => (
-                  <tr key={row.label}>
-                    <td>{row.label}</td>
+                  <tr key={row.page}>
+                    <td>{row.page}</td>
                     <td>{row.visits}</td>
-                    <td>{row.customers}</td>
-                    <td>{duration(row.seconds)}</td>
+                    <td>{row.unique_customers}</td>
+                    <td>{duration(row.avg_time_seconds)}</td>
                   </tr>
                 ))}
               </DataTable>
@@ -415,28 +337,25 @@ export default function Analytics() {
               subtitle="Simplified clickstream activity"
             >
               <div className="admin-flow-list">
-                {flowNames.map((path) => (
-                  <div key={path}>
+                {journeyRows.length > 0 ? journeyRows.map((j, idx) => (
+                  <div key={idx}>
                     <div>
-                      {path.split(" → ").map((step, i) => (
+                      {j.path.map((step, i) => (
                         <span key={step}>
                           {i > 0 && <span className="admin-flow-arrow">→</span>}
                           <b>{step}</b>
                         </span>
                       ))}
                     </div>
-                    <small>
-                      {
-                        sessions.filter((s) => s.path.join(" → ") === path)
-                          .length
-                      }{" "}
-                      sessions
-                    </small>
+                    <small>{j.sessions} sessions</small>
                   </div>
-                ))}
+                )) : (
+                  <EmptyState message="Navigation journey data is not yet available." />
+                )}
               </div>
             </ChartCard>
           </div>
+
           <ChartCard
             title="Customer behaviour"
             subtitle="View a profile to connect engagement with banking and risk information"
@@ -454,35 +373,35 @@ export default function Analytics() {
                 "Action",
               ]}
             >
-              {customers.map((c) => {
-                const records = sessions.filter((s) => s.customerId === c.id);
-                return (
-                  <tr key={c.id}>
-                    <td>
-                      <strong>{c.name}</strong>
-                      <small>{c.id}</small>
-                    </td>
-                    <td>{c.segment}</td>
-                    <td>{c.interest}</td>
-                    <td>{duration(mean(records.map((s) => s.seconds)))}</td>
-                    <td>{engagement(records)}%</td>
-                    <td>{topSpendingCategory(c.id)}</td>
-                    <td>
-                      <RiskBadge risk={c.risk} />
-                    </td>
-                    <td>
-                      <Link
-                        className="admin-table-link"
-                        href={`/admin/customers/${c.id}`}
-                        aria-label={`View customer ${c.name}`}
-                      >
-                        View customer <ArrowUpRight size={14} />
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
+              {customers.map((c) => (
+                <tr key={c.customer_id}>
+                  <td>
+                    <strong>{c.name}</strong>
+                    <small>{c.customer_code}</small>
+                  </td>
+                  <td>{c.segment}</td>
+                  <td>{c.product_interest ?? "—"}</td>
+                  <td>{duration(c.avg_session_seconds)}</td>
+                  <td>{c.engagement_pct}%</td>
+                  <td>{c.top_spending_category ?? "—"}</td>
+                  <td>
+                    <RiskBadge risk={c.risk as "Low" | "Medium" | "High" | "Critical" | null} />
+                  </td>
+                  <td>
+                    <Link
+                      className="admin-table-link"
+                      href={`/admin/customers/${c.customer_id}`}
+                      aria-label={`View customer ${c.name}`}
+                    >
+                      View customer <ArrowUpRight size={14} />
+                    </Link>
+                  </td>
+                </tr>
+              ))}
             </DataTable>
+            <p className="admin-chart-caption">
+              Showing {customers.length} of {data.customer_behaviour.total} customers.
+            </p>
           </ChartCard>
         </>
       )}
