@@ -17,6 +17,7 @@ from app.api.analytics import router as analytics_router
 from app.api.fraud import router as fraud_router
 from app.api.compliance import router as compliance_router
 from app.api.ai import router as ai_router
+from app.intelligence.analytics.router import router as intelligence_analytics_router
 
 
 api_router = APIRouter()
@@ -38,6 +39,7 @@ api_router.include_router(insurance_router)
 api_router.include_router(recommendations_router)
 
 api_router.include_router(analytics_router)
+api_router.include_router(intelligence_analytics_router)
 api_router.include_router(fraud_router)
 api_router.include_router(compliance_router)
 
