@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional, List
 import uuid
 from collections import defaultdict
@@ -8,10 +8,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.intelligence import BehaviourEvent, CustomerRiskProfile
 from app.models.identity import Customer
+from app.models.identity import User
 from app.models.banking import Transaction, Account
+from app.models.fraud import FraudAlert, FraudEvent, FraudInvestigation
 from app.intelligence.analytics.schemas import (
     BehaviourAnalyticsResponse,
     BehaviourFiltersResponse,
+    AnalyticsOverviewResponse,
+    OverviewActivity,
+    OverviewAlert,
+    OverviewCustomer,
+    OverviewSession,
+    OverviewSummary,
+    OverviewTransaction,
+    OverviewAccount,
     CustomerFilterItem,
     CustomerBehaviourData,
     CustomerBehaviourItem,
@@ -53,6 +63,273 @@ class BehaviourAnalyticsService:
                 CustomerFilterItem(id=c.id, code=c.customer_number, name=f"{c.first_name} {c.last_name}")
                 for c in customers_list
             ]
+        )
+
+    async def get_overview(
+        self, as_of: Optional[date] = None
+    ) -> AnalyticsOverviewResponse:
+        latest_timestamp = await self.db.scalar(
+            select(func.max(BehaviourEvent.timestamp))
+        )
+        latest_date = (
+            latest_timestamp.date() if latest_timestamp else date.today()
+        )
+        as_of = as_of or latest_date
+        as_of_end = datetime.combine(as_of, datetime.max.time(), tzinfo=timezone.utc)
+
+        customer_rows = (
+            await self.db.execute(
+                select(
+                    Customer,
+                    User.email,
+                    CustomerRiskProfile.fraud_risk_score,
+                )
+                .join(User, User.id == Customer.user_id)
+                .outerjoin(
+                    CustomerRiskProfile,
+                    CustomerRiskProfile.customer_id == Customer.id,
+                )
+            )
+        ).all()
+        customer_ids = [row.Customer.id for row in customer_rows]
+
+        account_rows = (
+            await self.db.execute(
+                select(Account).where(Account.customer_id.in_(customer_ids))
+            )
+        ).scalars().all() if customer_ids else []
+        accounts_by_customer = defaultdict(list)
+        for account in account_rows:
+            accounts_by_customer[account.customer_id].append(account)
+
+        product_rows = (
+            await self.db.execute(
+                select(
+                    BehaviourEvent.customer_id,
+                    BehaviourEvent.product_category,
+                    func.count(BehaviourEvent.id).label("views"),
+                )
+                .where(
+                    BehaviourEvent.timestamp <= as_of_end,
+                    BehaviourEvent.event_type == "PAGE_VIEW",
+                    BehaviourEvent.product_category.isnot(None),
+                )
+                .group_by(
+                    BehaviourEvent.customer_id,
+                    BehaviourEvent.product_category,
+                )
+            )
+        ).all()
+        products_by_customer = defaultdict(list)
+        interest_by_customer = {}
+        for row in product_rows:
+            products_by_customer[row.customer_id].append(row.product_category)
+            current = interest_by_customer.get(row.customer_id)
+            if current is None or row.views > current.views:
+                interest_by_customer[row.customer_id] = row
+
+        spending_rows = (
+            await self.db.execute(
+                select(
+                    Account.customer_id,
+                    func.coalesce(func.sum(Transaction.amount), 0).label("spending"),
+                )
+                .join(Transaction, Transaction.account_id == Account.id)
+                .where(
+                    Account.customer_id.in_(customer_ids),
+                    Transaction.transaction_type == "DEBIT",
+                    Transaction.transaction_date <= as_of_end,
+                )
+                .group_by(Account.customer_id)
+            )
+        ).all() if customer_ids else []
+        spending_by_customer = {
+            row.customer_id: float(row.spending or 0) for row in spending_rows
+        }
+
+        customers = []
+        risk_by_customer = {}
+        for row in customer_rows:
+            customer = row.Customer
+            score = float(row.fraud_risk_score or 0)
+            risk = get_risk_label(float(row.fraud_risk_score)) if row.fraud_risk_score is not None else None
+            risk_by_customer[customer.id] = risk
+            accounts = accounts_by_customer.get(customer.id, [])
+            account_products = [account.account_type.title() for account in accounts]
+            products = list(dict.fromkeys(account_products + products_by_customer.get(customer.id, [])))
+            customers.append(
+                OverviewCustomer(
+                    id=customer.id,
+                    name=f"{customer.first_name} {customer.last_name}",
+                    email=row.email,
+                    segment=SEGMENT_LABELS.get(customer.customer_segment, "Standard"),
+                    risk=risk,
+                    risk_score=score,
+                    income=float(customer.annual_income or 0),
+                    spending=spending_by_customer.get(customer.id, 0),
+                    interest=(
+                        interest_by_customer[customer.id].product_category
+                        if customer.id in interest_by_customer
+                        else None
+                    ),
+                    products=products,
+                    accounts=[
+                        OverviewAccount(
+                            id=account.id,
+                            type=account.account_type.title(),
+                            last_four=account.account_number[-4:],
+                            balance=float(account.balance or 0),
+                            status=account.status.title(),
+                        )
+                        for account in accounts
+                    ],
+                )
+            )
+
+        transaction_rows = (
+            await self.db.execute(
+                select(Transaction, Account.customer_id)
+                .join(Account, Account.id == Transaction.account_id)
+                .where(Transaction.transaction_date <= as_of_end)
+                .order_by(Transaction.transaction_date.desc())
+                .limit(1000)
+            )
+        ).all()
+        transactions = [
+            OverviewTransaction(
+                id=row.Transaction.id,
+                customer_id=row.customer_id,
+                date=row.Transaction.transaction_date,
+                merchant=row.Transaction.merchant_name,
+                category=row.Transaction.category,
+                amount=float(row.Transaction.amount),
+                type=row.Transaction.transaction_type.title(),
+                status=row.Transaction.transaction_status.title(),
+                risk="High" if row.Transaction.is_fraud else None,
+            )
+            for row in transaction_rows
+        ]
+
+        fraud_rows = (
+            await self.db.execute(
+                select(FraudAlert, FraudEvent)
+                .join(FraudEvent, FraudEvent.id == FraudAlert.fraud_event_id)
+                .where(FraudEvent.detected_at <= as_of_end)
+                .order_by(FraudEvent.detected_at.desc())
+            )
+        ).all()
+        severity_by_priority = {1: "Critical", 2: "High", 3: "Medium", 4: "Low"}
+        alerts = [
+            OverviewAlert(
+                id=alert.id,
+                customer_id=alert.customer_id,
+                type=event.event_type,
+                severity=severity_by_priority.get(alert.priority, "Medium"),
+                date=event.detected_at,
+                status={
+                    "OPEN": "Open",
+                    "IN_REVIEW": "In review",
+                    "RESOLVED": "Resolved",
+                }.get(alert.status.upper(), alert.status.title()),
+                domain="Fraud",
+            )
+            for alert, event in fraud_rows
+        ]
+
+        session_rows = (
+            await self.db.execute(
+                select(
+                    BehaviourEvent.session_id,
+                    BehaviourEvent.customer_id,
+                    func.min(BehaviourEvent.timestamp).label("session_date"),
+                    func.max(BehaviourEvent.session_duration).label("seconds"),
+                    func.count(BehaviourEvent.id).label("views"),
+                    func.sum(case((BehaviourEvent.action == "CLICK", 1), else_=0)).label("clicks"),
+                    func.max(BehaviourEvent.product_category).label("product"),
+                    func.max(BehaviourEvent.page).label("page"),
+                )
+                .where(
+                    BehaviourEvent.timestamp <= as_of_end,
+                    BehaviourEvent.session_id.isnot(None),
+                )
+                .group_by(BehaviourEvent.session_id, BehaviourEvent.customer_id)
+                .order_by(desc("session_date"))
+            )
+        ).all()
+        session_counts = defaultdict(int)
+        sessions = []
+        for row in session_rows:
+            session_counts[row.customer_id] += 1
+            sessions.append(
+                OverviewSession(
+                    id=row.session_id,
+                    customer_id=row.customer_id,
+                    date=row.session_date,
+                    seconds=int(row.seconds or 0),
+                    returning=session_counts[row.customer_id] > 1,
+                    path=[row.page] if row.page else [],
+                    product=row.product,
+                    views=int(row.views or 0),
+                    clicks=int(row.clicks or 0),
+                )
+            )
+
+        activity_rows = (
+            await self.db.execute(
+                select(BehaviourEvent)
+                .where(BehaviourEvent.timestamp <= as_of_end)
+                .order_by(BehaviourEvent.timestamp.desc())
+                .limit(20)
+            )
+        ).scalars().all()
+        activity = [
+            OverviewActivity(
+                id=event.id,
+                title=event.event_type.replace("_", " ").title(),
+                detail=(
+                    f"{event.action.title()} on {event.page}"
+                    if event.action and event.page
+                    else event.page or "Behaviour event recorded"
+                ),
+                date=event.timestamp,
+                customer_id=event.customer_id,
+            )
+            for event in activity_rows
+        ]
+
+        click_view_totals = (
+            await self.db.execute(
+                select(
+                    func.sum(case((BehaviourEvent.action == "CLICK", 1), else_=0)).label("clicks"),
+                    func.sum(case((BehaviourEvent.event_type == "PAGE_VIEW", 1), else_=0)).label("views"),
+                ).where(BehaviourEvent.timestamp <= as_of_end)
+            )
+        ).first()
+        clicks = int(click_view_totals.clicks or 0) if click_view_totals else 0
+        views = int(click_view_totals.views or 0) if click_view_totals else 0
+        open_investigations = await self.db.scalar(
+            select(func.count(FraudInvestigation.id)).where(
+                FraudInvestigation.completed_at.is_(None)
+            )
+        ) or 0
+        active_fraud_alerts = sum(alert.status == "Open" for alert in alerts)
+        high_risk_customers = sum(risk == "High" for risk in risk_by_customer.values())
+
+        return AnalyticsOverviewResponse(
+            as_of=as_of,
+            summary=OverviewSummary(
+                total_customers=len(customers),
+                active_fraud_alerts=active_fraud_alerts,
+                high_risk_customers=high_risk_customers,
+                open_investigations=int(open_investigations),
+                compliance_alerts=0,
+                engagement_pct=round(clicks / views * 100, 2) if views else 0.0,
+            ),
+            customers=customers,
+            transactions=transactions,
+            alerts=alerts,
+            sessions=sessions,
+            activity=activity,
         )
 
     async def get_analytics(
