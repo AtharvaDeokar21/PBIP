@@ -91,7 +91,10 @@ export function ChartCard({
     </section>
   );
 }
-export function RiskBadge({ risk }: { risk: Risk }) {
+export function RiskBadge({ risk }: { risk: Risk | null }) {
+  if (!risk) {
+    return <span className="admin-badge">—</span>;
+  }
   return (
     <span className={`admin-badge risk-${risk.toLowerCase()}`}>
       <i />

@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from typing import Optional, List
 import uuid
+from collections import defaultdict
 
 from sqlalchemy import select, func, and_, or_, distinct, case, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -267,43 +268,65 @@ class BehaviourAnalyticsService:
             .outerjoin(CustomerRiskProfile, Customer.id == CustomerRiskProfile.customer_id)\
             .limit(page_size).offset((page - 1) * page_size)
         cb_res = await self.db.execute(cb_q)
-        
-        items = []
-        for c in cb_res.all():
-            # Get metrics per customer
-            c_be_conds = base_be_conds + [BehaviourEvent.customer_id == c.id]
-            c_met_q = select(
+        customer_rows = cb_res.all()
+        customer_ids = [c.id for c in customer_rows]
+
+        metrics_by_customer = {}
+        products_by_customer = defaultdict(list)
+        spending_by_customer = defaultdict(list)
+        if customer_ids:
+            metrics_q = select(
+                BehaviourEvent.customer_id,
                 func.avg(BehaviourEvent.session_duration).label("avg_dur"),
                 func.sum(case((BehaviourEvent.action == "CLICK", 1), else_=0)).label("clicks"),
                 func.sum(case((BehaviourEvent.event_type == "PAGE_VIEW", 1), else_=0)).label("views")
-            ).select_from(BehaviourEvent).where(and_(*c_be_conds))
-            c_met_res = (await self.db.execute(c_met_q)).first()
-            
-            c_avg_dur = int(c_met_res.avg_dur or 0) if c_met_res else 0
-            c_clicks = c_met_res.clicks or 0 if c_met_res else 0
-            c_views = c_met_res.views or 0 if c_met_res else 0
-            c_eng = round((c_clicks / c_views * 100), 2) if c_views > 0 else 0.0
-            
-            c_prod_q = select(BehaviourEvent.product_category, func.count(BehaviourEvent.id).label("cnt"))\
-                .where(and_(*c_be_conds, BehaviourEvent.product_category.isnot(None), BehaviourEvent.event_type == "PAGE_VIEW"))\
-                .group_by(BehaviourEvent.product_category).order_by(desc("cnt")).limit(1)
-            c_prod_res = (await self.db.execute(c_prod_q)).first()
-            c_prod = c_prod_res.product_category if c_prod_res else None
-            
-            c_tx_conds = [
+            ).where(and_(*base_be_conds, BehaviourEvent.customer_id.in_(customer_ids)))\
+                .group_by(BehaviourEvent.customer_id)
+            metrics_res = await self.db.execute(metrics_q)
+            metrics_by_customer = {r.customer_id: r for r in metrics_res.all()}
+
+            products_q = select(
+                BehaviourEvent.customer_id,
+                BehaviourEvent.product_category,
+                func.count(BehaviourEvent.id).label("cnt")
+            ).where(and_(
+                *base_be_conds,
+                BehaviourEvent.customer_id.in_(customer_ids),
+                BehaviourEvent.product_category.isnot(None),
+                BehaviourEvent.event_type == "PAGE_VIEW"
+            )).group_by(BehaviourEvent.customer_id, BehaviourEvent.product_category)
+            products_res = await self.db.execute(products_q)
+            for r in products_res.all():
+                products_by_customer[r.customer_id].append(r)
+
+            spending_q = select(
+                Account.customer_id,
+                Transaction.category,
+                func.sum(Transaction.amount).label("amt")
+            ).join(Account, Transaction.account_id == Account.id).where(and_(
                 Transaction.transaction_type == "DEBIT",
                 Transaction.category != "Other",
                 func.date(Transaction.transaction_date) >= date_from,
                 func.date(Transaction.transaction_date) <= date_to,
-                Account.customer_id == c.id
-            ]
-            c_spend_q = select(Transaction.category, func.sum(Transaction.amount).label("amt"))\
-                .join(Account, Transaction.account_id == Account.id)\
-                .where(and_(*c_tx_conds))\
-                .group_by(Transaction.category).order_by(desc("amt")).limit(1)
-            c_spend_res = (await self.db.execute(c_spend_q)).first()
-            c_top_spend = c_spend_res.category if c_spend_res else None
-            
+                Account.customer_id.in_(customer_ids)
+            )).group_by(Account.customer_id, Transaction.category)
+            spending_res = await self.db.execute(spending_q)
+            for r in spending_res.all():
+                spending_by_customer[r.customer_id].append(r)
+
+        items = []
+        for c in customer_rows:
+            c_met_res = metrics_by_customer.get(c.id)
+            c_avg_dur = int(c_met_res.avg_dur or 0) if c_met_res else 0
+            c_clicks = c_met_res.clicks or 0 if c_met_res else 0
+            c_views = c_met_res.views or 0 if c_met_res else 0
+            c_eng = round((c_clicks / c_views * 100), 2) if c_views > 0 else 0.0
+
+            c_products = products_by_customer.get(c.id, [])
+            c_prod = max(c_products, key=lambda row: row.cnt).product_category if c_products else None
+            c_spending = spending_by_customer.get(c.id, [])
+            c_top_spend = max(c_spending, key=lambda row: row.amt).category if c_spending else None
+
             items.append(CustomerBehaviourItem(
                 customer_id=c.id,
                 customer_code=c.customer_number,
