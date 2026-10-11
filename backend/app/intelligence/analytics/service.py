@@ -1,10 +1,11 @@
 from datetime import date, datetime, timedelta, timezone
-from typing import Optional, List
+from typing import Optional
 import uuid
 from collections import defaultdict
 
 from sqlalchemy import select, func, and_, or_, distinct, case, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from app.models.intelligence import BehaviourEvent, CustomerRiskProfile
 from app.models.identity import Customer
@@ -20,6 +21,9 @@ from app.intelligence.analytics.schemas import (
     OverviewCustomer,
     OverviewSession,
     OverviewSummary,
+    CustomerDirectoryResponse,
+    CustomerDirectorySummary,
+    CustomerDirectoryItem,
     OverviewTransaction,
     OverviewAccount,
     CustomerFilterItem,
@@ -27,7 +31,6 @@ from app.intelligence.analytics.schemas import (
     CustomerBehaviourItem,
     IncomePattern,
     KPIAnalytics,
-    NavigationJourney,
     PageVisit,
     ProductAffinity,
     SegmentationAnalytics,
@@ -35,11 +38,301 @@ from app.intelligence.analytics.schemas import (
     SessionMonthCount,
     SpendingPattern
 )
-from app.intelligence.analytics.constants import SEGMENT_LABELS, INCOME_BANDS, get_risk_label
+from app.intelligence.analytics.constants import (
+    SEGMENT_LABELS,
+    INCOME_BANDS,
+    get_risk_code,
+    get_risk_label,
+)
 
 class BehaviourAnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def get_customer_directory(
+        self,
+        *,
+        search: str | None = None,
+        risk: str | None = None,
+        alerts: str | None = None,
+        segment: str | None = None,
+        sort: str = "name",
+        page: int = 1,
+        page_size: int = 20,
+    ) -> CustomerDirectoryResponse:
+        active_alert_statuses = ("OPEN", "IN_REVIEW", "ESCALATED")
+        normalized_risk = risk.upper() if risk else None
+        normalized_segment = segment.upper() if segment else None
+        normalized_alerts = alerts.lower() if alerts else None
+
+        active_alert_count = (
+            select(
+                FraudAlert.customer_id,
+                func.count(FraudAlert.id).label("active_alert_count"),
+            )
+            .where(FraudAlert.status.in_(active_alert_statuses))
+            .group_by(FraudAlert.customer_id)
+            .subquery()
+        )
+
+        filters = []
+        if search:
+            pattern = f"%{search.strip()}%"
+            filters.append(
+                or_(
+                    Customer.first_name.ilike(pattern),
+                    Customer.last_name.ilike(pattern),
+                    Customer.customer_number.ilike(pattern),
+                    User.email.ilike(pattern),
+                    func.concat(Customer.first_name, " ", Customer.last_name).ilike(
+                        pattern
+                    ),
+                )
+            )
+        if normalized_segment:
+            segment_code = next(
+                (
+                    code
+                    for code, label in SEGMENT_LABELS.items()
+                    if code == normalized_segment or label.upper() == normalized_segment
+                ),
+                normalized_segment,
+            )
+            filters.append(Customer.customer_segment == segment_code)
+        if normalized_risk:
+            score = CustomerRiskProfile.fraud_risk_score
+            risk_filter = {
+                "LOW": and_(score.isnot(None), score < 30),
+                "MEDIUM": and_(score >= 30, score < 60),
+                "HIGH": and_(score >= 60, score < 80),
+                "CRITICAL": score >= 80,
+            }.get(normalized_risk)
+            if risk_filter is not None:
+                filters.append(risk_filter)
+        if normalized_alerts in {"active", "none"}:
+            alert_count = func.coalesce(active_alert_count.c.active_alert_count, 0)
+            filters.append(
+                alert_count > 0 if normalized_alerts == "active" else alert_count == 0
+            )
+
+        if self.db.get_bind().dialect.name == "postgresql":
+            summary_customer = aliased(Customer)
+            summary_alert = aliased(FraudAlert)
+            summary_account = aliased(Account)
+            account_types = (
+                select(func.array_agg(func.distinct(Account.account_type)))
+                .where(Account.customer_id == Customer.id)
+                .scalar_subquery()
+            )
+            postgres_query = (
+                select(
+                    Customer,
+                    User.email,
+                    CustomerRiskProfile.fraud_risk_score,
+                    func.coalesce(
+                        active_alert_count.c.active_alert_count, 0
+                    ).label("active_alert_count"),
+                    func.count().over().label("filtered_total"),
+                    account_types.label("account_types"),
+                    select(func.count()).select_from(summary_customer).scalar_subquery().label(
+                        "summary_total_customers"
+                    ),
+                    select(func.count(distinct(summary_alert.customer_id)))
+                    .where(summary_alert.status.in_(active_alert_statuses))
+                    .scalar_subquery()
+                    .label("summary_alert_customers"),
+                    select(func.count())
+                    .select_from(summary_account)
+                    .where(summary_account.status == "ACTIVE")
+                    .scalar_subquery()
+                    .label("summary_active_accounts"),
+                )
+                .join(User, User.id == Customer.user_id)
+                .outerjoin(
+                    CustomerRiskProfile,
+                    CustomerRiskProfile.customer_id == Customer.id,
+                )
+                .outerjoin(
+                    active_alert_count,
+                    active_alert_count.c.customer_id == Customer.id,
+                )
+                .where(*filters)
+            )
+            if sort in {"risk", "risk_score"}:
+                postgres_query = postgres_query.order_by(
+                    CustomerRiskProfile.fraud_risk_score.desc().nulls_last(),
+                    Customer.last_name,
+                    Customer.first_name,
+                )
+            elif sort in {"name_desc", "name-desc"}:
+                postgres_query = postgres_query.order_by(
+                    Customer.last_name.desc(), Customer.first_name.desc()
+                )
+            else:
+                postgres_query = postgres_query.order_by(
+                    Customer.last_name, Customer.first_name, Customer.id
+                )
+            rows = (
+                await self.db.execute(
+                    postgres_query.offset((page - 1) * page_size).limit(page_size)
+                )
+            ).all()
+            first = rows[0] if rows else None
+            if first is None:
+                summary_row = (
+                    await self.db.execute(
+                        select(
+                            select(func.count()).select_from(summary_customer).scalar_subquery().label(
+                                "total_customers"
+                            ),
+                            select(func.count(distinct(summary_alert.customer_id)))
+                            .where(summary_alert.status.in_(active_alert_statuses))
+                            .scalar_subquery()
+                            .label("customers_with_active_alerts"),
+                            select(func.count())
+                            .select_from(summary_account)
+                            .where(summary_account.status == "ACTIVE")
+                            .scalar_subquery()
+                            .label("active_accounts"),
+                        )
+                    )
+                ).one()
+                summary = CustomerDirectorySummary(
+                    total_customers=int(summary_row.total_customers),
+                    customers_with_active_alerts=int(
+                        summary_row.customers_with_active_alerts
+                    ),
+                    active_accounts=int(summary_row.active_accounts),
+                )
+            else:
+                summary = CustomerDirectorySummary(
+                    total_customers=int(first.summary_total_customers),
+                    customers_with_active_alerts=int(first.summary_alert_customers),
+                    active_accounts=int(first.summary_active_accounts),
+                )
+            return CustomerDirectoryResponse(
+                summary=summary,
+                total=int(first.filtered_total) if first else 0,
+                page=page,
+                page_size=page_size,
+                customers=[
+                    CustomerDirectoryItem(
+                        id=row.Customer.id,
+                        customer_number=row.Customer.customer_number,
+                        name=f"{row.Customer.first_name} {row.Customer.last_name}",
+                        email=row.email,
+                        account_types=row.account_types or [],
+                        segment=row.Customer.customer_segment,
+                        risk=(
+                            get_risk_code(float(row.fraud_risk_score))
+                            if row.fraud_risk_score is not None
+                            else None
+                        ),
+                        active_alert_count=int(row.active_alert_count or 0),
+                    )
+                    for row in rows
+                ],
+            )
+
+        customer_query = (
+            select(
+                Customer,
+                User.email,
+                CustomerRiskProfile.fraud_risk_score,
+                func.coalesce(active_alert_count.c.active_alert_count, 0).label(
+                    "active_alert_count"
+                ),
+            )
+            .join(User, User.id == Customer.user_id)
+            .outerjoin(
+                CustomerRiskProfile,
+                CustomerRiskProfile.customer_id == Customer.id,
+            )
+            .outerjoin(
+                active_alert_count,
+                active_alert_count.c.customer_id == Customer.id,
+            )
+            .where(*filters)
+        )
+
+        if sort in {"risk", "risk_score"}:
+            customer_query = customer_query.order_by(
+                CustomerRiskProfile.fraud_risk_score.desc().nulls_last(),
+                Customer.last_name,
+                Customer.first_name,
+            )
+        elif sort in {"name_desc", "name-desc"}:
+            customer_query = customer_query.order_by(
+                Customer.last_name.desc(), Customer.first_name.desc()
+            )
+        else:
+            customer_query = customer_query.order_by(
+                Customer.last_name, Customer.first_name, Customer.id
+            )
+
+        total = await self.db.scalar(
+            select(func.count()).select_from(customer_query.order_by(None).subquery())
+        )
+        page_rows = (
+            await self.db.execute(
+                customer_query.offset((page - 1) * page_size).limit(page_size)
+            )
+        ).all()
+
+        customer_ids = [row.Customer.id for row in page_rows]
+        account_rows = (
+            await self.db.execute(
+                select(Account.customer_id, Account.account_type)
+                .where(
+                    Account.customer_id.in_(customer_ids),
+                )
+                .group_by(Account.customer_id, Account.account_type)
+                .order_by(Account.account_type)
+            )
+        ).all() if customer_ids else []
+        account_types_by_customer = defaultdict(list)
+        for row in account_rows:
+            account_types_by_customer[row.customer_id].append(row.account_type)
+
+        summary_total = await self.db.scalar(
+            select(func.count()).select_from(Customer)
+        )
+        summary_alert_customers = await self.db.scalar(
+            select(func.count(distinct(FraudAlert.customer_id))).where(
+                FraudAlert.status.in_(active_alert_statuses)
+            )
+        )
+        summary_active_accounts = await self.db.scalar(
+            select(func.count()).select_from(Account).where(Account.status == "ACTIVE")
+        )
+
+        return CustomerDirectoryResponse(
+            summary=CustomerDirectorySummary(
+                total_customers=summary_total or 0,
+                customers_with_active_alerts=summary_alert_customers or 0,
+                active_accounts=summary_active_accounts or 0,
+            ),
+            total=total or 0,
+            page=page,
+            page_size=page_size,
+            customers=[
+                CustomerDirectoryItem(
+                    id=row.Customer.id,
+                    customer_number=row.Customer.customer_number,
+                    name=f"{row.Customer.first_name} {row.Customer.last_name}",
+                    email=row.email,
+                    account_types=account_types_by_customer.get(row.Customer.id, []),
+                    segment=row.Customer.customer_segment,
+                    risk=(
+                        get_risk_code(float(row.fraud_risk_score))
+                        if row.fraud_risk_score is not None
+                        else None
+                    ),
+                    active_alert_count=int(row.active_alert_count or 0),
+                )
+                for row in page_rows
+            ],
+        )
 
     async def get_filters(self, search: Optional[str] = None) -> BehaviourFiltersResponse:
         segments = list(set(SEGMENT_LABELS.values()))

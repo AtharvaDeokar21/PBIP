@@ -103,6 +103,31 @@ class BehaviourFiltersResponse(BaseModel):
     customers: List[CustomerFilterItem]
 
 
+class CustomerDirectorySummary(_OverviewModel):
+    total_customers: int
+    customers_with_active_alerts: int
+    active_accounts: int
+
+
+class CustomerDirectoryItem(_OverviewModel):
+    id: uuid.UUID
+    customer_number: str
+    name: str
+    email: str
+    account_types: List[str]
+    segment: str | None
+    risk: str | None
+    active_alert_count: int
+
+
+class CustomerDirectoryResponse(_OverviewModel):
+    summary: CustomerDirectorySummary
+    total: int
+    page: int
+    page_size: int
+    customers: List[CustomerDirectoryItem]
+
+
 class OverviewAccount(_OverviewModel):
     id: uuid.UUID
     type: str
