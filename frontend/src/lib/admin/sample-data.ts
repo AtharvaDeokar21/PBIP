@@ -73,7 +73,7 @@ const sessions = customers.flatMap((c, i) =>
       .slice(0, 10),
     seconds: 120 + ((i * 19 + j * 13) % 300),
     returning: j > 0,
-    path: paths[c.interest],
+    path: paths[c.interest ?? "Savings"],
     product: c.interest,
     views: 2 + ((i + j) % 5),
     clicks: 1 + ((i + j) % 3),
