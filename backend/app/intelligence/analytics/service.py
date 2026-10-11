@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+import time
 from typing import Optional
 import uuid
 from collections import defaultdict
@@ -45,6 +46,24 @@ from app.intelligence.analytics.constants import (
     get_risk_label,
 )
 
+_ANALYTICS_CACHE_TTL_SECONDS = 15
+_analytics_cache: dict[tuple[str, str], tuple[float, object]] = {}
+
+
+def _cached_analytics(key: tuple[str, str]) -> object | None:
+    cached = _analytics_cache.get(key)
+    if cached and time.monotonic() - cached[0] < _ANALYTICS_CACHE_TTL_SECONDS:
+        return cached[1]
+    if cached:
+        _analytics_cache.pop(key, None)
+    return None
+
+
+def _store_analytics(key: tuple[str, str], value: object) -> object:
+    _analytics_cache[key] = (time.monotonic(), value)
+    return value
+
+
 class BehaviourAnalyticsService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -60,6 +79,24 @@ class BehaviourAnalyticsService:
         page: int = 1,
         page_size: int = 20,
     ) -> CustomerDirectoryResponse:
+        cache_key = (
+            "customers",
+            "|".join(
+                [
+                    search or "",
+                    risk or "",
+                    alerts or "",
+                    segment or "",
+                    sort,
+                    str(page),
+                    str(page_size),
+                ]
+            ),
+        )
+        if self.db.get_bind().dialect.name == "postgresql":
+            cached = _cached_analytics(cache_key)
+            if cached is not None:
+                return cached  # type: ignore[return-value]
         active_alert_statuses = ("OPEN", "IN_REVIEW", "ESCALATED")
         normalized_risk = risk.upper() if risk else None
         normalized_segment = segment.upper() if segment else None
@@ -120,9 +157,14 @@ class BehaviourAnalyticsService:
             summary_alert = aliased(FraudAlert)
             summary_account = aliased(Account)
             account_types = (
-                select(func.array_agg(func.distinct(Account.account_type)))
-                .where(Account.customer_id == Customer.id)
-                .scalar_subquery()
+                select(
+                    Account.customer_id,
+                    func.array_agg(func.distinct(Account.account_type)).label(
+                        "account_types"
+                    ),
+                )
+                .group_by(Account.customer_id)
+                .subquery()
             )
             postgres_query = (
                 select(
@@ -133,7 +175,7 @@ class BehaviourAnalyticsService:
                         active_alert_count.c.active_alert_count, 0
                     ).label("active_alert_count"),
                     func.count().over().label("filtered_total"),
-                    account_types.label("account_types"),
+                    account_types.c.account_types,
                     select(func.count()).select_from(summary_customer).scalar_subquery().label(
                         "summary_total_customers"
                     ),
@@ -155,6 +197,10 @@ class BehaviourAnalyticsService:
                 .outerjoin(
                     active_alert_count,
                     active_alert_count.c.customer_id == Customer.id,
+                )
+                .outerjoin(
+                    account_types,
+                    account_types.c.customer_id == Customer.id,
                 )
                 .where(*filters)
             )
@@ -210,7 +256,7 @@ class BehaviourAnalyticsService:
                     customers_with_active_alerts=int(first.summary_alert_customers),
                     active_accounts=int(first.summary_active_accounts),
                 )
-            return CustomerDirectoryResponse(
+            response = CustomerDirectoryResponse(
                 summary=summary,
                 total=int(first.filtered_total) if first else 0,
                 page=page,
@@ -233,6 +279,7 @@ class BehaviourAnalyticsService:
                     for row in rows
                 ],
             )
+            return _store_analytics(cache_key, response)
 
         customer_query = (
             select(
@@ -335,6 +382,11 @@ class BehaviourAnalyticsService:
         )
 
     async def get_filters(self, search: Optional[str] = None) -> BehaviourFiltersResponse:
+        cache_key = ("filters", search or "")
+        if self.db.get_bind().dialect.name == "postgresql":
+            cached = _cached_analytics(cache_key)
+            if cached is not None:
+                return cached  # type: ignore[return-value]
         segments = list(set(SEGMENT_LABELS.values()))
         products = ["Savings", "Loans", "Investments", "Insurance"]
         
@@ -349,18 +401,30 @@ class BehaviourAnalyticsService:
         res = await self.db.execute(q)
         customers_list = res.scalars().all()
         
-        return BehaviourFiltersResponse(
+        return _store_analytics(cache_key, BehaviourFiltersResponse(
             segments=segments,
             products=products,
             customers=[
                 CustomerFilterItem(id=c.id, code=c.customer_number, name=f"{c.first_name} {c.last_name}")
                 for c in customers_list
             ]
+        )) if self.db.get_bind().dialect.name == "postgresql" else BehaviourFiltersResponse(
+            segments=segments,
+            products=products,
+            customers=[
+                CustomerFilterItem(id=c.id, code=c.customer_number, name=f"{c.first_name} {c.last_name}")
+                for c in customers_list
+            ],
         )
 
     async def get_overview(
         self, as_of: Optional[date] = None
     ) -> AnalyticsOverviewResponse:
+        cache_key = ("overview", as_of.isoformat() if as_of else "")
+        if self.db.get_bind().dialect.name == "postgresql":
+            cached = _cached_analytics(cache_key)
+            if cached is not None:
+                return cached  # type: ignore[return-value]
         latest_timestamp = await self.db.scalar(
             select(func.max(BehaviourEvent.timestamp))
         )
@@ -608,7 +672,7 @@ class BehaviourAnalyticsService:
         active_fraud_alerts = sum(alert.status == "Open" for alert in alerts)
         high_risk_customers = sum(risk == "High" for risk in risk_by_customer.values())
 
-        return AnalyticsOverviewResponse(
+        response = AnalyticsOverviewResponse(
             as_of=as_of,
             summary=OverviewSummary(
                 total_customers=len(customers),
@@ -624,6 +688,7 @@ class BehaviourAnalyticsService:
             sessions=sessions,
             activity=activity,
         )
+        return _store_analytics(cache_key, response) if self.db.get_bind().dialect.name == "postgresql" else response
 
     async def get_analytics(
         self,
@@ -635,6 +700,24 @@ class BehaviourAnalyticsService:
         page: int = 1,
         page_size: int = 20
     ) -> BehaviourAnalyticsResponse:
+        cache_key = (
+            "behaviour",
+            "|".join(
+                [
+                    str(date_from),
+                    str(date_to),
+                    segment or "",
+                    product or "",
+                    str(customer_id or ""),
+                    str(page),
+                    str(page_size),
+                ]
+            ),
+        )
+        if self.db.get_bind().dialect.name == "postgresql":
+            cached = _cached_analytics(cache_key)
+            if cached is not None:
+                return cached  # type: ignore[return-value]
         latest_res = await self.db.execute(select(func.max(BehaviourEvent.timestamp)))
         latest_dt = latest_res.scalar()
         latest_date = latest_dt.date() if latest_dt else date.today()
@@ -914,7 +997,7 @@ class BehaviourAnalyticsService:
         tot_res = await self.db.execute(tot_q)
         tot_cust = tot_res.scalar() or 0
         
-        return BehaviourAnalyticsResponse(
+        response = BehaviourAnalyticsResponse(
             data_available_through=latest_date,
             date_from=date_from,
             date_to=date_to,
@@ -928,3 +1011,4 @@ class BehaviourAnalyticsService:
             navigation_journeys=navigation_journeys,
             customer_behaviour=CustomerBehaviourData(total=tot_cust, page=page, page_size=page_size, items=items)
         )
+        return _store_analytics(cache_key, response) if self.db.get_bind().dialect.name == "postgresql" else response
