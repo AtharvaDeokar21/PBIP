@@ -178,7 +178,7 @@ export default function FraudSecurityMonitoring() {
             data.customers.map((c) => ({
               id: c.id,
               name: c.name,
-              risk: c.risk,
+              risk: c.risk ?? "Low",
             })),
             data.asOf,
           )

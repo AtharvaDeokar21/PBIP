@@ -2,6 +2,7 @@
  * Lightweight typed API client for the admin workspace.
  * All requests automatically attach the stored JWT token.
  */
+import type { AdminSnapshot } from "./types";
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api/v1";
 
@@ -112,4 +113,20 @@ export function fetchBehaviour(
 export function fetchFilters(search?: string): Promise<FiltersResponse> {
   const qs = search ? `?search=${encodeURIComponent(search)}` : "";
   return apiFetch(`/analytics/behaviour/filters${qs}`);
+}
+
+export interface OverviewResponse extends AdminSnapshot {
+  summary: {
+    totalCustomers: number;
+    activeFraudAlerts: number;
+    highRiskCustomers: number;
+    openInvestigations: number;
+    complianceAlerts: number;
+    engagementPct: number;
+  };
+}
+
+export function fetchAdminOverview(asOf?: string): Promise<OverviewResponse> {
+  const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : "";
+  return apiFetch(`/analytics/overview${qs}`);
 }

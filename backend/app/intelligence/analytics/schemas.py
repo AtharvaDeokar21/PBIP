@@ -1,7 +1,19 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from pydantic import BaseModel
 from typing import List
+
+
+def _to_camel(value: str) -> str:
+    head, *tail = value.split("_")
+    return head + "".join(part.title() for part in tail)
+
+
+class _OverviewModel(BaseModel):
+    model_config = {
+        "alias_generator": _to_camel,
+        "populate_by_name": True,
+    }
 
 class KPIAnalytics(BaseModel):
     active_customers: int
@@ -89,3 +101,86 @@ class BehaviourFiltersResponse(BaseModel):
     segments: List[str]
     products: List[str]
     customers: List[CustomerFilterItem]
+
+
+class OverviewAccount(_OverviewModel):
+    id: uuid.UUID
+    type: str
+    last_four: str
+    balance: float
+    status: str
+
+
+class OverviewCustomer(_OverviewModel):
+    id: uuid.UUID
+    name: str
+    email: str
+    segment: str
+    risk: str | None
+    risk_score: float
+    income: float
+    spending: float
+    interest: str | None
+    products: List[str]
+    accounts: List[OverviewAccount]
+
+
+class OverviewTransaction(_OverviewModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    date: datetime
+    merchant: str | None
+    category: str | None
+    amount: float
+    type: str
+    status: str
+    risk: str | None
+
+
+class OverviewAlert(_OverviewModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    type: str
+    severity: str
+    date: datetime
+    status: str
+    domain: str
+
+
+class OverviewSession(_OverviewModel):
+    id: uuid.UUID
+    customer_id: uuid.UUID
+    date: datetime
+    seconds: int
+    returning: bool
+    path: List[str]
+    product: str | None
+    views: int
+    clicks: int
+
+
+class OverviewActivity(_OverviewModel):
+    id: uuid.UUID
+    title: str
+    detail: str
+    date: datetime
+    customer_id: uuid.UUID
+
+
+class OverviewSummary(_OverviewModel):
+    total_customers: int
+    active_fraud_alerts: int
+    high_risk_customers: int
+    open_investigations: int
+    compliance_alerts: int
+    engagement_pct: float
+
+
+class AnalyticsOverviewResponse(_OverviewModel):
+    as_of: date
+    summary: OverviewSummary
+    customers: List[OverviewCustomer]
+    transactions: List[OverviewTransaction]
+    alerts: List[OverviewAlert]
+    sessions: List[OverviewSession]
+    activity: List[OverviewActivity]

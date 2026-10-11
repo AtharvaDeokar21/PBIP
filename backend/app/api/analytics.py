@@ -12,25 +12,6 @@ router = APIRouter(
 
 
 @router.get(
-    "/overview",
-    dependencies=[
-        Depends(
-            require_roles(
-                "RELATIONSHIP_MANAGER",
-                "ADMIN",
-            )
-        )
-    ],
-)
-async def analytics_overview(
-    current_user: User = Depends(get_current_user),
-):
-    return {
-        "message": "Analytics overview will be implemented here"
-    }
-
-
-@router.get(
     "/customers",
     dependencies=[
         Depends(

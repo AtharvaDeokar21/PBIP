@@ -6,11 +6,11 @@ export type Customer = {
   name: string;
   email: string;
   segment: Segment;
-  risk: Risk;
+  risk: Risk | null;
   riskScore: number;
   income: number;
   spending: number;
-  interest: Interest;
+  interest: Interest | null;
   products: string[];
   accounts: {
     id: string;
@@ -29,7 +29,7 @@ export type Transaction = {
   amount: number;
   type: "Credit" | "Debit";
   status: "Completed" | "Pending";
-  risk: Risk;
+  risk: Risk | null;
 };
 export type Alert = {
   id: string;
@@ -47,7 +47,7 @@ export type Session = {
   seconds: number;
   returning: boolean;
   path: string[];
-  product: Interest;
+  product: Interest | null;
   views: number;
   clicks: number;
 };

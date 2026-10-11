@@ -6,10 +6,43 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import require_roles
-from app.intelligence.analytics.schemas import BehaviourAnalyticsResponse, BehaviourFiltersResponse
+from app.intelligence.analytics.schemas import (
+    AnalyticsOverviewResponse,
+    BehaviourAnalyticsResponse,
+    BehaviourFiltersResponse,
+)
 from app.intelligence.analytics.service import BehaviourAnalyticsService
 
 router = APIRouter(prefix="/analytics/behaviour", tags=["Analytics"])
+overview_router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
+INTERNAL_ROLES = (
+    "ADMIN",
+    "RELATIONSHIP_MANAGER",
+    "FRAUD_ANALYST",
+    "COMPLIANCE_OFFICER",
+)
+
+
+@overview_router.get(
+    "/overview",
+    response_model=AnalyticsOverviewResponse,
+    summary="Get the internal dashboard overview",
+    description=(
+        "Returns real customer, behaviour, transaction and fraud data for the "
+        "internal dashboard. All internal roles can access it; CUSTOMER users "
+        "receive HTTP 403."
+    ),
+    dependencies=[Depends(require_roles(*INTERNAL_ROLES))],
+)
+async def get_analytics_overview(
+    as_of: Optional[date] = Query(
+        None,
+        description="Include records through this date; defaults to the latest behaviour event date.",
+    ),
+    db: AsyncSession = Depends(get_db),
+):
+    return await BehaviourAnalyticsService(db).get_overview(as_of=as_of)
 
 @router.get("", response_model=BehaviourAnalyticsResponse, dependencies=[Depends(require_roles("ADMIN", "RELATIONSHIP_MANAGER"))])
 async def get_behaviour_analytics(
