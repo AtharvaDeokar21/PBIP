@@ -41,9 +41,19 @@ export default function Analytics() {
   const segment = params.get("segment") || "all";
   const product = params.get("product") || "all";
   const customerId = params.get("customer") || "all";
+  const dateHint = new Date().toISOString().slice(0, 10);
+  const bounds = periodBounds(period, dateHint);
+  const from =
+    period === "custom" ? params.get("from") || "" : bounds.from;
+  const to = period === "custom" ? params.get("to") || "" : bounds.to;
+  const valid = Boolean(from && to && from <= to);
 
   // Build API params from UI state
   const apiParams = new URLSearchParams({ page_size: "50" });
+  if (valid) {
+    apiParams.set("date_from", from);
+    apiParams.set("date_to", to);
+  }
   if (segment !== "all") apiParams.set("segment", segment);
   if (product !== "all") apiParams.set("product", product);
   if (customerId !== "all") apiParams.set("customer_id", customerId);
@@ -54,10 +64,6 @@ export default function Analytics() {
   if (error || !data) return <ErrorState message={error} retry={refresh} />;
 
   const asOf = data.data_available_through;
-  const bounds = periodBounds(period, asOf);
-  const from = period === "custom" ? params.get("from") || "" : bounds.from;
-  const to = period === "custom" ? params.get("to") || "" : bounds.to;
-  const valid = Boolean(from && to && from <= to);
 
   // KPIs direct from backend
   const kpis = data.kpis;

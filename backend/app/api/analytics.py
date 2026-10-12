@@ -12,25 +12,6 @@ router = APIRouter(
 
 
 @router.get(
-    "/customers",
-    dependencies=[
-        Depends(
-            require_roles(
-                "RELATIONSHIP_MANAGER",
-                "ADMIN",
-            )
-        )
-    ],
-)
-async def customer_analytics(
-    current_user: User = Depends(get_current_user),
-):
-    return {
-        "message": "Customer analytics will be implemented here"
-    }
-
-
-@router.get(
     "/transactions",
     dependencies=[
         Depends(

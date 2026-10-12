@@ -10,6 +10,7 @@ from app.intelligence.analytics.schemas import (
     AnalyticsOverviewResponse,
     BehaviourAnalyticsResponse,
     BehaviourFiltersResponse,
+    CustomerDirectoryResponse,
 )
 from app.intelligence.analytics.service import BehaviourAnalyticsService
 
@@ -73,3 +74,36 @@ async def get_behaviour_filters(
 ):
     service = BehaviourAnalyticsService(db)
     return await service.get_filters(search=search)
+
+
+@overview_router.get(
+    "/customers",
+    response_model=CustomerDirectoryResponse,
+    summary="Get the internal customer directory",
+    description=(
+        "Returns live customer directory rows and unfiltered KPI counts. "
+        "All internal roles can access it; CUSTOMER users receive HTTP 403. "
+        "Search, filters, sorting and pagination are applied server-side."
+    ),
+    dependencies=[Depends(require_roles(*INTERNAL_ROLES))],
+)
+async def get_customer_directory(
+    q: str | None = Query(None, description="Search name, customer number, or email"),
+    search: str | None = Query(None, description="Alias for q"),
+    risk: str | None = Query(None, description="LOW, MEDIUM, HIGH, or CRITICAL"),
+    alerts: str | None = Query(None, description="active or none"),
+    segment: str | None = Query(None, description="Customer segment code"),
+    sort: str = Query("name", description="name, name_desc, or risk"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+) -> CustomerDirectoryResponse:
+    return await BehaviourAnalyticsService(db).get_customer_directory(
+        search=q or search,
+        risk=risk,
+        alerts=alerts,
+        segment=segment,
+        sort=sort,
+        page=page,
+        page_size=page_size,
+    )

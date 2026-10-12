@@ -20,4 +20,18 @@ def get_risk_label(score: float | None) -> str | None:
         return "Low"
     if score < 60:
         return "Medium"
-    return "High"
+    if score < 80:
+        return "High"
+    return "Critical"
+
+
+def get_risk_code(score: float | None) -> str | None:
+    if score is None:
+        return None
+    if score < 30:
+        return "LOW"
+    if score < 60:
+        return "MEDIUM"
+    if score < 80:
+        return "HIGH"
+    return "CRITICAL"
