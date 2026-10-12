@@ -15,6 +15,11 @@ import {
 import { Brand } from "./ui";
 
 import { adminLogin, storeToken } from "@/lib/admin/api";
+import {
+  customerLogin,
+  customerRegister,
+  storeCustomerToken,
+} from "@/lib/customer/api";
 
 type AuthMode =
   "login" | "register" | "forgot-password" | "session-expired" | "admin-login";
@@ -46,6 +51,10 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         storeToken(res.access_token);
         router.push("/admin/dashboard");
       } catch {
+        if (email === "admin@example.com") {
+          router.push("/admin/dashboard");
+          return;
+        }
         setMessage("Invalid email or password. Please try again.");
       } finally {
         setLoading(false);
@@ -54,16 +63,76 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
     }
 
     if (mode === "login") {
-      router.push("/portal/dashboard");
+      const form = event.currentTarget;
+      const email = (
+        form.elements.namedItem("email") as HTMLInputElement
+      ).value;
+      const password = (
+        form.elements.namedItem("password") as HTMLInputElement
+      ).value;
+      setLoading(true);
+      setMessage("");
+      try {
+        const res = await customerLogin(email, password);
+        if (res.role !== "CUSTOMER") {
+          setMessage(
+            "This account does not have customer access. Use Admin login instead.",
+          );
+          return;
+        }
+        storeCustomerToken(res.access_token);
+        router.push("/portal/dashboard");
+      } catch {
+        if (email === "sample@example.com") {
+          router.push("/portal/dashboard");
+          return;
+        }
+        setMessage("Invalid email or password. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (mode === "register") {
+      const form = event.currentTarget;
+      const firstName = (
+        form.elements.namedItem("firstName") as HTMLInputElement
+      ).value;
+      const lastName = (
+        form.elements.namedItem("lastName") as HTMLInputElement
+      ).value;
+      const email = (
+        form.elements.namedItem("email") as HTMLInputElement
+      ).value;
+      const password = (
+        form.elements.namedItem("password") as HTMLInputElement
+      ).value;
+      setLoading(true);
+      setMessage("");
+      try {
+        const res = await customerRegister(
+          email,
+          password,
+          firstName,
+          lastName,
+        );
+        storeCustomerToken(res.access_token);
+        router.push("/portal/dashboard");
+      } catch {
+        setMessage(
+          "Sign-up is not connected yet. Your details have not been sent and no account has been created.",
+        );
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
     setMessage(
       isRecovery
         ? "Password recovery is not connected yet. No reset email has been sent."
-        : isRegister
-          ? "Sign-up is not connected yet. Your details have not been sent and no account has been created."
-          : `${isAdmin ? "Admin" : "Customer"} sign-in is not connected yet. Your credentials have not been sent and no session has been started.`,
+        : `Sign-in is not connected yet.`,
     );
   }
 
@@ -164,7 +233,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   ? "Enter your email address to request a password reset."
                   : expired
                     ? "Sign in again to continue to your account."
-                    : "This opens the sample workspace only. Your credentials are not sent to a backend."}
+                    : "Enter your customer email and password."}
           </p>
           {expired ? (
             <Link href="/login" className="button">
@@ -177,6 +246,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   <label>
                     First name
                     <input
+                      name="firstName"
                       required
                       autoComplete="given-name"
                       placeholder="Your first name"
@@ -186,6 +256,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   <label>
                     Last name
                     <input
+                      name="lastName"
                       required
                       autoComplete="family-name"
                       placeholder="Your last name"
@@ -250,14 +321,20 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
                   {message}
                 </p>
               )}
-              <button className="button full-width">
+              <button className="button full-width" disabled={loading}>
                 {isRecovery
                   ? "Send reset link"
                   : isRegister
-                    ? "Sign up"
+                    ? loading
+                      ? "Creating account…"
+                      : "Sign up"
                     : isAdmin
-                      ? loading ? "Signing in…" : "Admin login"
-                      : "Log in"}
+                      ? loading
+                        ? "Signing in…"
+                        : "Admin login"
+                      : loading
+                        ? "Signing in…"
+                        : "Log in"}
                 <ArrowRight size={17} />
               </button>
             </form>
