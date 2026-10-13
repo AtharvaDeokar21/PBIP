@@ -165,8 +165,8 @@ frontend/
         [section]/page.tsx        Customer section route registry
     components/
       auth-page.tsx               Customer/admin authentication screens
-      portal-shell.tsx            Customer navigation, header and assistant
-      customer-pages.tsx           Customer module implementations
+      customer-pages.tsx           Customer module implementations with live API integration
+      use-customer-api.ts          React hooks for customer banking resources
       ui.tsx                      Shared brand, currency and UI primitives
       admin/                      Admin workspace components
         shell.tsx                 Admin navigation, breadcrumb & staff header
@@ -176,6 +176,8 @@ frontend/
         audit-logs.tsx            Cryptographic SHA-256 vault & security events
     lib/
       sample-data.ts              Illustrative customer data
+      customer/
+        api.ts                    Typed customer API client for all customer banking endpoints
       admin/
         types.ts                  Admin data types
         service.ts                Admin data access/service layer
@@ -183,7 +185,24 @@ frontend/
         metrics.ts                Admin analytics calculations
 ```
 
-The `(workspace)` directory is a Next.js route group and does not appear in the public URL. Admin data currently comes from local sample-data services; there is no frontend API client yet.
+The `(workspace)` directory is a Next.js route group and does not appear in the public URL.
+
+## Customer Portal Backend Integration
+
+The customer-facing portal is fully wired to the FastAPI backend with typed API clients and React resource hooks:
+- **Client & Hook Architecture**:
+  - `src/lib/customer/api.ts`: Typed Fetch API client mirroring every endpoint in `docs/api/customer/` with automatic Bearer token injection from `localStorage`. Base URL configured via `NEXT_PUBLIC_API_URL` (default: `http://127.0.0.1:8000/api/v1`).
+  - `src/components/use-customer-api.ts`: Reusable React data hooks (`useCustomerSummary`, `useCustomerProfile`, `useAccounts`, `useTransactions`, `usePayees`, `useTransfers`, `useBillers`, `useLoanProducts`, `useHoldings`, etc.) with loading, error, and refresh mechanics.
+  - `src/components/customer-pages.tsx`: Connected to live data while maintaining seamless offline/demo fallbacks for unauthenticated or local development without a running backend.
+- **Implemented Customer Workflows**:
+  - **Authentication**: Customer Login (`/auth/login`) and Sign-up (`/auth/register`) with JWT session persistence in `localStorage`.
+  - **Financial Summary**: Dashboard aggregates live balances, invested funds, and spending trends from `/customers/me/summary` and `/customers/me`.
+  - **Account Services**: Live account listing (`/accounts`) and filterable transaction history (`/accounts/{id}/transactions`) with pagination and search.
+  - **Payments & Transfers**: Account-to-account immediate and scheduled transfers (`/transfers`) and utility bill payments (`/bills/pay`, `/billers`).
+  - **Beneficiary Management**: Full CRUD operations for payees (`/payees`).
+  - **Loans & Credit**: Product catalogue (`/loans/products`), EMI calculator, eligibility assessment (`/loans/eligibility`), and application submission (`/loans/applications`).
+  - **Wealth & Investments**: Product discovery (`/investments/products`), portfolio holdings (`/investments`), and simulated purchase execution.
+  - **Recommendations & Profile**: AI-driven recommendations (`/recommendations`) and profile self-service editing (`/customers/me`).
 
 ## Team handoff
 

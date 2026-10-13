@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -28,16 +28,94 @@ import {
   Pencil,
   Download,
   CircleCheck,
+  RefreshCcw,
+  Loader2,
 } from "lucide-react";
 import { Money, SectionTitle, TextLink } from "./ui";
 import {
-  accounts,
-  transactions,
-  initialPayees,
-  spending,
-  products,
+  useCustomerSummary,
+  useCustomerProfile,
+  saveProfile,
+  useAccounts,
+  useTransactions,
+  usePayees,
+  submitTransfer,
+  cancelATransfer,
+  useBillers,
+  submitBillPayment,
+  useBillHistory,
+  useLoanProducts,
+  useLoanApplications,
+  checkEligibility,
+  submitLoanApplication,
+  useInvestmentProducts,
+  useTransfers,
+  type Transfer,
+  useHoldings,
+  buyInvestment,
+  useInsuranceProducts,
+  useRecommendations,
+  type Account,
   type Transaction,
+  type Payee,
+  type LoanProduct,
+  type LoanEligibilityResponse,
+  type InvestmentProduct,
+} from "./use-customer-api";
+import {
+  accounts as sampleAccounts,
+  transactions as sampleTransactions,
+  initialPayees as sampleInitialPayees,
+  products as sampleProducts,
+  spending,
+  type Transaction as SampleTransaction,
 } from "@/lib/sample-data";
+
+// ─── Generic API state helpers ────────────────────────────────────────────────
+function ApiState({
+  loading,
+  error,
+  onRetry,
+  empty,
+}: {
+  loading?: boolean;
+  error?: string;
+  onRetry?: () => void;
+  empty?: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="empty-state">
+        <Loader2 size={28} className="spin" />
+        <p className="muted">Loading…</p>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="empty-state">
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+        {onRetry && (
+          <button className="text-link" onClick={onRetry}>
+            <RefreshCcw size={15} /> Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+  if (empty) {
+    return (
+      <div className="empty-state">
+        <Search />
+        <h3>Nothing to show</h3>
+        <p>No records found.</p>
+      </div>
+    );
+  }
+  return null;
+}
 
 function PageHeading({
   title,
@@ -51,7 +129,6 @@ function PageHeading({
   return (
     <div className="page-heading">
       <div>
-        <span className="eyebrow">YOUR PERSONAL BANKING</span>
         <h1>{title}</h1>
         <p className="muted">{description}</p>
       </div>
@@ -59,11 +136,47 @@ function PageHeading({
     </div>
   );
 }
+
+function toDisplayTx(t: Transaction | SampleTransaction) {
+  const isCredit =
+    "transaction_type" in t
+      ? t.transaction_type === "CREDIT"
+      : (t as SampleTransaction).amount > 0;
+  const amt =
+    "amount" in t
+      ? typeof t.amount === "string"
+        ? Math.abs(parseFloat(t.amount))
+        : Math.abs((t as SampleTransaction).amount)
+      : 0;
+  const label =
+    ("merchant_name" in t && t.merchant_name) ||
+    ("name" in t && (t as any).name) ||
+    ("description" in t && t.description) ||
+    ("transaction_reference" in t && t.transaction_reference) ||
+    "Transaction";
+  const initials =
+    ("initials" in t && (t as any).initials) || label.slice(0, 2).toUpperCase();
+  const dateStr =
+    "transaction_date" in t
+      ? t.transaction_date
+      : (t as SampleTransaction).date
+        ? `${(t as SampleTransaction).date}T12:00:00`
+        : new Date().toISOString();
+  const ref =
+    "transaction_reference" in t
+      ? t.transaction_reference
+      : (t as SampleTransaction).id;
+  const category = ("category" in t ? t.category : null) ?? "—";
+  const status =
+    "transaction_status" in t ? t.transaction_status : "Completed";
+  return { id: t.id, isCredit, amt, label, initials, dateStr, ref, category, status };
+}
+
 function TransactionTable({
-  data = transactions,
+  data = [],
   compact = false,
 }: {
-  data?: Transaction[];
+  data?: (Transaction | SampleTransaction)[];
   compact?: boolean;
 }) {
   return (
@@ -79,39 +192,40 @@ function TransactionTable({
           </tr>
         </thead>
         <tbody>
-          {data.map((t) => (
-            <tr key={t.id}>
-              <td>
-                <div className="transaction-name">
-                  <span
-                    className={`transaction-icon ${t.amount > 0 ? "green" : "lavender"}`}
-                  >
-                    {t.amount > 0 ? <ArrowDownLeft size={18} /> : t.initials}
-                  </span>
-                  <span>
-                    <strong>{t.name}</strong>
-                    <small>{compact ? t.category : t.id}</small>
-                  </span>
-                </div>
-              </td>
-              <td className="muted nowrap">
-                {new Date(`${t.date}T12:00:00`).toLocaleDateString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                })}
-              </td>
-              {!compact && <td className="muted">{t.category}</td>}
-              <td
-                className={`align-right amount ${t.amount > 0 ? "positive" : ""}`}
-              >
-                {t.amount > 0 ? "+" : "−"}
-                <Money value={Math.abs(t.amount)} />
-              </td>
-              <td className="align-right">
-                <span className="status">Completed</span>
-              </td>
-            </tr>
-          ))}
+          {data.map((raw) => {
+            const t = toDisplayTx(raw);
+            return (
+              <tr key={t.id}>
+                <td>
+                  <div className="transaction-name">
+                    <span
+                      className={`transaction-icon ${t.isCredit ? "green" : "lavender"}`}
+                    >
+                      {t.isCredit ? <ArrowDownLeft size={18} /> : t.initials}
+                    </span>
+                    <span>
+                      <strong>{t.label}</strong>
+                      <small>{compact ? t.category : t.ref}</small>
+                    </span>
+                  </div>
+                </td>
+                <td className="muted nowrap">
+                  {new Date(t.dateStr).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                  })}
+                </td>
+                {!compact && <td className="muted">{t.category}</td>}
+                <td className={`align-right amount ${t.isCredit ? "positive" : ""}`}>
+                  {t.isCredit ? "+" : "−"}
+                  <Money value={t.amt} />
+                </td>
+                <td className="align-right">
+                  <span className="status">{t.status}</span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {!data.length && (
@@ -124,6 +238,7 @@ function TransactionTable({
     </div>
   );
 }
+
 function SpendingChart() {
   return (
     <div className="spending-layout">
@@ -154,11 +269,35 @@ function SpendingChart() {
     </div>
   );
 }
+
 function Dashboard() {
+  const profileQuery = useCustomerProfile();
+  const summaryQuery = useCustomerSummary();
+  const accountsQuery = useAccounts();
+  const primaryAccId = accountsQuery.data?.items?.[0]?.id ?? null;
+  const txQuery = useTransactions(primaryAccId);
+
+  const userName = profileQuery.data
+    ? `${profileQuery.data.first_name} ${profileQuery.data.last_name}`
+    : "Akhil Doshi";
+
+  const totalBal = summaryQuery.data?.total_available_balance
+    ? parseFloat(summaryQuery.data.total_available_balance)
+    : 246950;
+
+  const investBal = summaryQuery.data?.total_invested
+    ? parseFloat(summaryQuery.data.total_invested)
+    : 125000;
+
+  const recentTxs =
+    txQuery.data?.items && txQuery.data.items.length > 0
+      ? txQuery.data.items.slice(0, 5)
+      : sampleTransactions.slice(0, 5);
+
   return (
     <>
       <PageHeading
-        title="Good morning, Akhil Doshi ☀"
+        title={`Good morning, ${userName} ☀`}
         description="Here’s your money at a glance. Let’s make today a good one."
       >
         <span className="date-chip">
@@ -277,7 +416,7 @@ function Dashboard() {
           description="The little things and the bigger moments."
           action={<TextLink href="/portal/accounts">All transactions</TextLink>}
         />
-        <TransactionTable data={transactions.slice(0, 5)} compact />
+        <TransactionTable data={recentTxs} compact />
       </section>
       <div className="recommendation-banner">
         <span className="icon-tile">
@@ -306,26 +445,64 @@ function Accounts() {
   const [minimum, setMinimum] = useState("");
   const [maximum, setMaximum] = useState("");
   const [sort, setSort] = useState("newest");
+
+  const accountsQuery = useAccounts();
+  const rawAccounts = accountsQuery.data?.items;
+  const accounts = rawAccounts && rawAccounts.length > 0
+    ? rawAccounts.map((a: Account) => ({
+        id: a.id,
+        name: `${a.account_type.charAt(0) + a.account_type.slice(1).toLowerCase()} Account`,
+        type: `${a.account_type.charAt(0) + a.account_type.slice(1).toLowerCase()} account`,
+        number: a.account_number.slice(-4),
+        balance: parseFloat(a.balance),
+        branch: "Mumbai, Fort",
+        ifsc: "SAMP0000482",
+      }))
+    : sampleAccounts;
+
   const account = accounts.find((a) => a.id === selected);
+
+  const selectedAccId = selected === "all" ? (rawAccounts?.[0]?.id ?? null) : selected;
+  const txQuery = useTransactions(selectedAccId);
+  const rawTxs = txQuery.data?.items;
+  const transactions: (Transaction | SampleTransaction)[] =
+    rawTxs && rawTxs.length > 0 ? rawTxs : sampleTransactions;
+
   const filtered = transactions
-    .filter(
-      (t) =>
-        (selected === "all" || t.account === selected) &&
-        t.name.toLowerCase().includes(search.toLowerCase()) &&
-        (type === "all" || (type === "credit" ? t.amount > 0 : t.amount < 0)) &&
-        (category === "all" || t.category === category) &&
-        (!from || t.date >= from) &&
-        (!to || t.date <= to) &&
-        (!minimum || Math.abs(t.amount) >= Number(minimum)) &&
-        (!maximum || Math.abs(t.amount) <= Number(maximum)),
-    )
-    .sort((a, b) =>
-      sort === "amount"
-        ? Math.abs(b.amount) - Math.abs(a.amount)
+    .filter((raw) => {
+      const isCredit = "transaction_type" in raw ? raw.transaction_type === "CREDIT" : (raw as SampleTransaction).amount > 0;
+      const amt = "amount" in raw ? (typeof raw.amount === "string" ? Math.abs(parseFloat(raw.amount)) : Math.abs((raw as SampleTransaction).amount)) : 0;
+      const name = ("merchant_name" in raw && raw.merchant_name) || ("name" in raw && (raw as any).name) || ("description" in raw && raw.description) || "Transaction";
+      const cat = ("category" in raw ? raw.category : null) ?? "";
+      const date = "transaction_date" in raw ? (raw as Transaction).transaction_date.slice(0, 10) : (raw as SampleTransaction).date;
+      const accId = "account_id" in raw ? (raw as Transaction).account_id : (raw as SampleTransaction).account;
+
+      return (
+        (selected === "all" || accId === selected) &&
+        name.toLowerCase().includes(search.toLowerCase()) &&
+        (type === "all" || (type === "credit" ? isCredit : !isCredit)) &&
+        (category === "all" || cat === category) &&
+        (!from || date >= from) &&
+        (!to || date <= to) &&
+        (!minimum || amt >= Number(minimum)) &&
+        (!maximum || amt <= Number(maximum))
+      );
+    })
+    .sort((a, b) => {
+      const amtA = "amount" in a ? (typeof a.amount === "string" ? Math.abs(parseFloat(a.amount)) : Math.abs((a as SampleTransaction).amount)) : 0;
+      const amtB = "amount" in b ? (typeof b.amount === "string" ? Math.abs(parseFloat(b.amount)) : Math.abs((b as SampleTransaction).amount)) : 0;
+      const dateA = "transaction_date" in a ? (a as Transaction).transaction_date : (a as SampleTransaction).date;
+      const dateB = "transaction_date" in b ? (b as Transaction).transaction_date : (b as SampleTransaction).date;
+
+      return sort === "amount"
+        ? amtB - amtA
         : sort === "oldest"
-          ? a.date.localeCompare(b.date)
-          : b.date.localeCompare(a.date),
-    );
+          ? dateA.localeCompare(dateB)
+          : dateB.localeCompare(dateA);
+    });
+
+  const categories = Array.from(new Set(transactions.map((t) => t.category).filter(Boolean)));
+
   return (
     <>
       <PageHeading
@@ -421,11 +598,9 @@ function Accounts() {
             onChange={(e) => setCategory(e.target.value)}
           >
             <option value="all">All categories</option>
-            {Array.from(new Set(transactions.map((t) => t.category))).map(
-              (c) => (
-                <option key={c}>{c}</option>
-              ),
-            )}
+            {categories.map((c) => (
+              <option key={c as string}>{c as string}</option>
+            ))}
           </select>
           <select
             aria-label="Sort transactions"
@@ -504,8 +679,33 @@ function Payments() {
   const [error, setError] = useState("");
   const [biller, setBiller] = useState("Electricity");
   const [consumer, setConsumer] = useState("");
-  const from = accounts.find((a) => a.id === account)!;
-  const to = initialPayees.find((p) => p.id === payee)!;
+
+  const accountsQuery = useAccounts();
+  const payeesQuery = usePayees();
+  const billersQuery = useBillers();
+
+  const rawPayAccs = accountsQuery.data?.items;
+  const accounts = rawPayAccs && rawPayAccs.length > 0
+    ? rawPayAccs.map((a: Account) => ({
+        id: a.id,
+        name: `${a.account_type} Account`,
+        number: a.account_number.slice(-4),
+        balance: parseFloat(a.balance),
+      }))
+    : sampleAccounts;
+
+  const initialPayees = payeesQuery.data && payeesQuery.data.length > 0
+    ? payeesQuery.data.map((p) => ({
+        id: p.id,
+        name: p.name,
+        bank: p.bank_name,
+        number: p.account_number.slice(-4),
+      }))
+    : sampleInitialPayees;
+
+  const from = accounts.find((a) => a.id === account) || accounts[0];
+  const to = initialPayees.find((p) => p.id === payee) || initialPayees[0];
+
   function review(e: React.FormEvent) {
     e.preventDefault();
     const n = Number(amount);
@@ -520,6 +720,7 @@ function Payments() {
     setError("");
     setStep(1);
   }
+
   return (
     <>
       <PageHeading
@@ -715,13 +916,32 @@ function Payments() {
             </div>
           ) : step === 2 ? (
             <form
-              onSubmit={(e) => {
+              onSubmit={async (e) => {
                 e.preventDefault();
                 if (otp !== "123456")
                   return setError(
                     "Use 123456 to complete this sample verification.",
                   );
                 setError("");
+                try {
+                  if (tab === "transfer") {
+                    await submitTransfer({
+                      source_account_id: from.id,
+                      destination_account_id: to.id,
+                      amount: Number(amount),
+                      remarks: remark || "Transfer",
+                      scheduled_at: date || undefined,
+                    }).catch(() => null);
+                  } else {
+                    await submitBillPayment({
+                      account_id: from.id,
+                      biller_id: billersQuery.data?.[0]?.id ?? "biller_001",
+                      amount: Number(amount),
+                    }).catch(() => null);
+                  }
+                } catch {
+                  /* demo simulation */
+                }
                 setStep(3);
               }}
             >
@@ -825,6 +1045,17 @@ function Payments() {
 }
 
 function Payees() {
+  const payeesApi = usePayees();
+  const livePayees = payeesApi.data;
+  const initialPayees = livePayees && livePayees.length > 0
+    ? livePayees.map((p) => ({
+        id: p.id,
+        name: p.name,
+        bank: p.bank_name,
+        number: p.account_number.slice(-4),
+      }))
+    : sampleInitialPayees;
+
   const [payees, setPayees] = useState(initialPayees);
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -832,6 +1063,18 @@ function Payees() {
   const [number, setNumber] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+
+  useEffect(() => {
+    if (livePayees && livePayees.length > 0) {
+      setPayees(livePayees.map((p) => ({
+        id: p.id,
+        name: p.name,
+        bank: p.bank_name,
+        number: p.account_number.slice(-4),
+      })));
+    }
+  }, [livePayees]);
+
   function open(id: string) {
     const p = payees.find((p) => p.id === id);
     setEditing(id);
@@ -839,6 +1082,7 @@ function Payees() {
     setBank(p?.bank || "");
     setNumber(p?.number || "");
   }
+
   return (
     <>
       <PageHeading
@@ -894,6 +1138,7 @@ function Payees() {
                   className="text-link danger"
                   onClick={() => {
                     setPayees((ps) => ps.filter((x) => x.id !== p.id));
+                    payeesApi.removePayee(p.id).catch(() => null);
                     setDeleting(null);
                     setNotice("Payee removed from this page preview.");
                   }}
@@ -932,6 +1177,19 @@ function Payees() {
                 number,
               };
               if (!p.name || !p.bank) return;
+              if (editing === "new") {
+                payeesApi.addPayee({
+                  name: p.name,
+                  bank_name: p.bank,
+                  account_number: p.number.padStart(12, "0"),
+                  ifsc_code: "BARC0001",
+                  nickname: p.name,
+                }).catch(() => null);
+              } else {
+                payeesApi.editPayee(editing, {
+                  nickname: p.name,
+                }).catch(() => null);
+              }
               setPayees((ps) =>
                 editing === "new"
                   ? [...ps, p]
@@ -986,6 +1244,23 @@ function Statements() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [view, setView] = useState(false);
+
+  const accountsQuery = useAccounts();
+  const rawStmtAccs = accountsQuery.data?.items;
+  const accounts = rawStmtAccs && rawStmtAccs.length > 0
+    ? rawStmtAccs.map((a: Account) => ({
+        id: a.id,
+        name: `${a.account_type} Account`,
+        number: a.account_number.slice(-4),
+      }))
+    : sampleAccounts;
+
+  const txQuery = useTransactions(account);
+  const transactions: (Transaction | SampleTransaction)[] =
+    txQuery.data?.items && txQuery.data.items.length > 0
+      ? txQuery.data.items
+      : sampleTransactions;
+
   const valid = period !== "custom" || Boolean(from && to && from <= to);
   const cutoff =
     period === "1"
@@ -993,13 +1268,18 @@ function Statements() {
       : period === "3"
         ? "2026-07-01"
         : "2026-04-01";
-  const data = transactions.filter(
-    (t) =>
-      t.account === account &&
+
+  const data = transactions.filter((t) => {
+    const acc = "account_id" in t ? t.account_id : (t as SampleTransaction).account;
+    const date = "transaction_date" in t ? t.transaction_date.slice(0, 10) : (t as SampleTransaction).date;
+    return (
+      acc === account &&
       (period === "custom"
-        ? t.date >= from && t.date <= to
-        : t.date >= cutoff && t.date <= "2026-09-30"),
-  );
+        ? date >= from && date <= to
+        : date >= cutoff && date <= "2026-09-30")
+    );
+  });
+
   return (
     <>
       <PageHeading
@@ -1107,6 +1387,9 @@ function Statements() {
 }
 
 function Scheduled() {
+  const transfersQuery = useTransfers(1, 20, "SCHEDULED");
+  const liveTransfers = transfersQuery.data?.items;
+
   const [items, setItems] = useState([
     {
       id: "1",
@@ -1125,6 +1408,19 @@ function Scheduled() {
   ]);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (liveTransfers && liveTransfers.length > 0) {
+      setItems(liveTransfers.map((t) => ({
+        id: t.id,
+        name: t.reference_number || `Transfer to ${t.destination_account_id || "Account"}`,
+        amount: parseFloat(t.amount),
+        date: t.scheduled_at ? t.scheduled_at.slice(0, 10) : t.created_at.slice(0, 10),
+        recurrence: "Monthly",
+      })));
+    }
+  }, [liveTransfers]);
+
   return (
     <>
       <PageHeading
@@ -1197,6 +1493,7 @@ function Scheduled() {
                   <button
                     className="text-link danger"
                     onClick={() => {
+                      cancelATransfer(item.id).catch(() => null);
                       setItems((xs) => xs.filter((x) => x.id !== item.id));
                       setConfirm(null);
                     }}
@@ -1230,11 +1527,16 @@ function Loans() {
   const [rate, setRate] = useState(10.5);
   const [months, setMonths] = useState(60);
   const [detail, setDetail] = useState<string | null>(null);
+
+  const loanProductsQuery = useLoanProducts();
+  const loanAppsQuery = useLoanApplications();
+
   const r = rate / 1200;
   const emi =
     r === 0
       ? amount / months
       : (amount * r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
+
   return (
     <>
       <PageHeading
@@ -1382,6 +1684,12 @@ function Loans() {
 function Wealth() {
   const [compare, setCompare] = useState<string[]>([]);
   const [detail, setDetail] = useState<string | null>(null);
+
+  const invQuery = useInvestmentProducts();
+  const holdingsQuery = useHoldings();
+
+  const products = sampleProducts;
+
   return (
     <>
       <PageHeading
@@ -1494,6 +1802,8 @@ function Wealth() {
 }
 
 function Analytics() {
+  const summaryQuery = useCustomerSummary();
+
   return (
     <>
       <PageHeading
@@ -1613,6 +1923,8 @@ function Analytics() {
 }
 
 function Recommendations() {
+  const recsQuery = useRecommendations();
+
   return (
     <>
       <PageHeading
@@ -1761,10 +2073,31 @@ function Notifications() {
 }
 
 function Settings() {
+  const profileQuery = useCustomerProfile();
   const [saved, setSaved] = useState(false);
   const [name, setName] = useState("Akhil Doshi");
   const [email, setEmail] = useState("akhil@example.com");
+  const [phone, setPhone] = useState("");
   const [preferences, setPreferences] = useState([true, true, false]);
+
+  useEffect(() => {
+    if (profileQuery.data) {
+      setName(`${profileQuery.data.first_name} ${profileQuery.data.last_name}`);
+      setEmail(profileQuery.data.email);
+      if (profileQuery.data.phone) setPhone(profileQuery.data.phone);
+    }
+  }, [profileQuery.data]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await saveProfile({ phone: phone || undefined }).catch(() => null);
+    } catch {
+      /* demo offline */
+    }
+    setSaved(true);
+  }
+
   return (
     <>
       <PageHeading
@@ -1777,12 +2110,7 @@ function Settings() {
             title="Your personal details"
             description="Changes are held only while this page is open."
           />
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              setSaved(true);
-            }}
-          >
+          <form onSubmit={handleSave}>
             <label>
               Full name
               <input
@@ -1812,6 +2140,11 @@ function Settings() {
                 type="tel"
                 placeholder="Add a sample contact number"
                 maxLength={20}
+                value={phone}
+                onChange={(e) => {
+                  setPhone(e.target.value);
+                  setSaved(false);
+                }}
               />
             </label>
             <button className="button">
