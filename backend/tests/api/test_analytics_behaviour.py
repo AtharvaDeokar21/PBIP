@@ -1,10 +1,10 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
-from datetime import datetime, timezone
 
 from app.models.identity import User
 from app.main import app
 from app.core.database import get_db
+from app.intelligence.analytics.constants import get_risk_label
 from tests.conftest import GENERATED_PASSWORD
 
 @pytest.fixture
@@ -82,3 +82,18 @@ async def test_empty_data_case(admin_client: AsyncClient):
     assert data["session_analytics"]["total_sessions"] == 0
     assert len(data["page_visits"]) == 0
     assert data["customer_behaviour"]["total"] == 0
+
+
+@pytest.mark.parametrize(
+    ("score", "expected"),
+    [
+        (29, "Low"),
+        (30, "Medium"),
+        (59, "Medium"),
+        (60, "High"),
+        (79, "High"),
+        (80, "Critical"),
+    ],
+)
+def test_risk_level_boundaries(score, expected):
+    assert get_risk_label(score) == expected

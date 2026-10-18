@@ -42,7 +42,6 @@ from app.intelligence.analytics.schemas import (
 from app.intelligence.analytics.constants import (
     SEGMENT_LABELS,
     INCOME_BANDS,
-    get_risk_code,
     get_risk_label,
 )
 from app.services.compliance_service import ComplianceService
@@ -270,8 +269,8 @@ class BehaviourAnalyticsService:
                         email=row.email,
                         account_types=row.account_types or [],
                         segment=row.Customer.customer_segment,
-                        risk=(
-                            get_risk_code(float(row.fraud_risk_score))
+                        risk=get_risk_label(
+                            float(row.fraud_risk_score)
                             if row.fraud_risk_score is not None
                             else None
                         ),
@@ -371,8 +370,8 @@ class BehaviourAnalyticsService:
                     email=row.email,
                     account_types=account_types_by_customer.get(row.Customer.id, []),
                     segment=row.Customer.customer_segment,
-                    risk=(
-                        get_risk_code(float(row.fraud_risk_score))
+                    risk=get_risk_label(
+                        float(row.fraud_risk_score)
                         if row.fraud_risk_score is not None
                         else None
                     ),
@@ -506,12 +505,16 @@ class BehaviourAnalyticsService:
         }
 
         customers = []
-        risk_by_customer = {}
+        risk_score_by_customer = {}
         for row in customer_rows:
             customer = row.Customer
             score = float(row.fraud_risk_score or 0)
             risk = get_risk_label(float(row.fraud_risk_score)) if row.fraud_risk_score is not None else None
-            risk_by_customer[customer.id] = risk
+            risk_score_by_customer[customer.id] = (
+                float(row.fraud_risk_score)
+                if row.fraud_risk_score is not None
+                else None
+            )
             accounts = accounts_by_customer.get(customer.id, [])
             account_products = [account.account_type.title() for account in accounts]
             products = list(dict.fromkeys(account_products + products_by_customer.get(customer.id, [])))
@@ -671,7 +674,10 @@ class BehaviourAnalyticsService:
             )
         ) or 0
         active_fraud_alerts = sum(alert.status == "Open" for alert in alerts)
-        high_risk_customers = sum(risk == "High" for risk in risk_by_customer.values())
+        high_risk_customers = sum(
+            score is not None and score >= 60
+            for score in risk_score_by_customer.values()
+        )
 
         compliance_alerts_data = await ComplianceService(self.db).list_alerts(
             as_of=as_of_end,

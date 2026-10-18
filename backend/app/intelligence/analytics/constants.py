@@ -13,25 +13,25 @@ INCOME_BANDS = [
     (125001, None, "Above ₹1,25,000")
 ]
 
+RISK_LEVELS = (
+    (30, "Low", "LOW"),
+    (60, "Medium", "MEDIUM"),
+    (80, "High", "HIGH"),
+    (float("inf"), "Critical", "CRITICAL"),
+)
+
+
 def get_risk_label(score: float | None) -> str | None:
     if score is None:
         return None
-    if score < 30:
-        return "Low"
-    if score < 60:
-        return "Medium"
-    if score < 80:
-        return "High"
-    return "Critical"
+    for upper_bound, label, _ in RISK_LEVELS:
+        if score < upper_bound:
+            return label
+    return None
 
 
 def get_risk_code(score: float | None) -> str | None:
-    if score is None:
+    label = get_risk_label(score)
+    if label is None:
         return None
-    if score < 30:
-        return "LOW"
-    if score < 60:
-        return "MEDIUM"
-    if score < 80:
-        return "HIGH"
-    return "CRITICAL"
+    return next(code for _, level, code in RISK_LEVELS if level == label)
