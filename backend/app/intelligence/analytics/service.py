@@ -45,6 +45,7 @@ from app.intelligence.analytics.constants import (
     get_risk_code,
     get_risk_label,
 )
+from app.services.compliance_service import ComplianceService
 
 _ANALYTICS_CACHE_TTL_SECONDS = 15
 _analytics_cache: dict[tuple[str, str], tuple[float, object]] = {}
@@ -672,6 +673,12 @@ class BehaviourAnalyticsService:
         active_fraud_alerts = sum(alert.status == "Open" for alert in alerts)
         high_risk_customers = sum(risk == "High" for risk in risk_by_customer.values())
 
+        compliance_alerts_data = await ComplianceService(self.db).list_alerts(
+            as_of=as_of_end,
+            page_size=1,
+        )
+        open_compliance_alerts = compliance_alerts_data.summary.open_count
+
         response = AnalyticsOverviewResponse(
             as_of=as_of,
             summary=OverviewSummary(
@@ -679,7 +686,7 @@ class BehaviourAnalyticsService:
                 active_fraud_alerts=active_fraud_alerts,
                 high_risk_customers=high_risk_customers,
                 open_investigations=int(open_investigations),
-                compliance_alerts=0,
+                compliance_alerts=open_compliance_alerts,
                 engagement_pct=round(clicks / views * 100, 2) if views else 0.0,
             ),
             customers=customers,

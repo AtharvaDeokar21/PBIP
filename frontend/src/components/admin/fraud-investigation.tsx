@@ -1,18 +1,16 @@
 "use client";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   ScanSearch,
   ShieldAlert,
   RefreshCw,
-  CalendarDays,
   ArrowUpRight,
   Filter,
   Clock,
   CheckCircle,
   AlertCircle,
   User,
-  FileText,
   MessageSquare,
   ChevronDown,
   ChevronUp,
@@ -20,10 +18,9 @@ import {
 import { useAdminData } from "./use-admin-data";
 import {
   PageTitle,
+  AdminHeaderDate,
   ChartCard,
-  DataTable,
   RiskBadge,
-  StatusBadge,
   FilterDropdown,
   SearchBar,
   EmptyState,
@@ -33,138 +30,16 @@ import {
   Pagination,
 } from "./ui";
 import { activeAlerts, localDate } from "@/lib/admin/metrics";
-import type { Risk } from "@/lib/admin/types";
-
-type Investigation = {
-  id: string;
-  alertId: string;
-  customerId: string;
-  customerName: string;
-  type: string;
-  severity: Risk;
-  status: "Open" | "In review" | "Escalated" | "Resolved" | "False positive";
-  assignedTo: string;
-  openedAt: string;
-  updatedAt: string;
-  notes: string[];
-  riskScore: number;
-  amount?: number;
-};
-
-function generateInvestigations(asOf: string): Investigation[] {
-  return [
-    {
-      id: "INV-0041",
-      alertId: "FA-2041",
-      customerId: "C1002",
-      customerName: "Diya Mehta",
-      type: "Unusual transfer amount",
-      severity: "Critical",
-      status: "Open",
-      assignedTo: "Priya Iyer",
-      openedAt: `${asOf}T09:42:00+05:30`,
-      updatedAt: `${asOf}T09:42:00+05:30`,
-      notes: [
-        "Alert auto-generated: transfer of ₹4,85,000 to unverified beneficiary.",
-        "Customer has no prior history of transactions above ₹1,00,000.",
-      ],
-      riskScore: 91,
-      amount: 485000,
-    },
-    {
-      id: "INV-0040",
-      alertId: "FA-2040",
-      customerId: "C1005",
-      customerName: "Kabir Joshi",
-      type: "New sign-in location",
-      severity: "High",
-      status: "In review",
-      assignedTo: "Amit Verma",
-      openedAt: `${asOf}T09:18:00+05:30`,
-      updatedAt: `${asOf}T10:05:00+05:30`,
-      notes: [
-        "Sign-in from Frankfurt, Germany – customer profile shows Mumbai as primary location.",
-        "OTP verification was completed successfully.",
-        "Customer contacted via registered mobile number – awaiting response.",
-      ],
-      riskScore: 76,
-    },
-    {
-      id: "INV-0039",
-      alertId: "FA-2039",
-      customerId: "C1007",
-      customerName: "Ishaan Patel",
-      type: "Repeated login failures",
-      severity: "Medium",
-      status: "In review",
-      assignedTo: "Priya Iyer",
-      openedAt: `2026-10-04T17:20:00+05:30`,
-      updatedAt: `${asOf}T08:30:00+05:30`,
-      notes: [
-        "Seven failed attempts from a single IP in Bengaluru.",
-        "Account temporarily locked after the fifth attempt per security policy.",
-        "No successful login from this IP in transaction history.",
-      ],
-      riskScore: 52,
-    },
-    {
-      id: "INV-0038",
-      alertId: "FA-2038",
-      customerId: "C1001",
-      customerName: "Aarav Shah",
-      type: "Unrecognized device",
-      severity: "Low",
-      status: "Resolved",
-      assignedTo: "Amit Verma",
-      openedAt: `2026-10-03T11:35:00+05:30`,
-      updatedAt: `2026-10-03T14:20:00+05:30`,
-      notes: [
-        "Login from a new iPad – OTP confirmed by customer.",
-        "Customer confirmed ownership of device via support callback.",
-        "Device added to trusted list. Alert closed as false positive.",
-      ],
-      riskScore: 18,
-    },
-    {
-      id: "INV-0037",
-      alertId: "FA-2037",
-      customerId: "C1009",
-      customerName: "Vivaan Desai",
-      type: "High-value outflow",
-      severity: "High",
-      status: "Escalated",
-      assignedTo: "Priya Iyer",
-      openedAt: `2026-10-02T14:10:00+05:30`,
-      updatedAt: `2026-10-04T09:00:00+05:30`,
-      notes: [
-        "₹12,00,000 transferred to a newly registered payee in 3 installments.",
-        "Escalated to senior analyst for deeper review.",
-        "Customer interview scheduled for 6 Oct 2026.",
-      ],
-      riskScore: 83,
-      amount: 1200000,
-    },
-    {
-      id: "INV-0036",
-      alertId: "FA-2036",
-      customerId: "C1011",
-      customerName: "Arjun Singh",
-      type: "Card misuse suspicion",
-      severity: "Medium",
-      status: "False positive",
-      assignedTo: "Amit Verma",
-      openedAt: `2026-10-01T10:00:00+05:30`,
-      updatedAt: `2026-10-02T15:00:00+05:30`,
-      notes: [
-        "Card transaction flagged at a new merchant in Chennai.",
-        "Customer confirmed the purchase was legitimate.",
-        "Marked as false positive after customer verification.",
-      ],
-      riskScore: 30,
-      amount: 8400,
-    },
-  ];
-}
+import type {
+  InvestigationItem,
+  Alert,
+  CanonicalAlertStatus,
+  InvestigationStatus,
+} from "@/lib/admin/types";
+import {
+  fetchFraudInvestigations,
+  updateFraudAlertStatus,
+} from "@/lib/admin/api";
 
 const STATUS_CLASS: Record<string, string> = {
   Open: "status-open",
@@ -176,66 +51,224 @@ const STATUS_CLASS: Record<string, string> = {
 
 const PAGE_SIZE = 10;
 
+function isActionAllowed(
+  currentStatus: InvestigationStatus,
+  target: CanonicalAlertStatus,
+): boolean {
+  switch (currentStatus) {
+    case "Open":
+      return target === "IN_REVIEW" || target === "ESCALATED";
+    case "In review":
+      return (
+        target === "ESCALATED" ||
+        target === "RESOLVED" ||
+        target === "FALSE_POSITIVE"
+      );
+    case "Escalated":
+      return (
+        target === "IN_REVIEW" ||
+        target === "RESOLVED" ||
+        target === "FALSE_POSITIVE"
+      );
+    case "Resolved":
+    case "False positive":
+      return target === "IN_REVIEW";
+    default:
+      return false;
+  }
+}
+
+function parseApiError(err: unknown): string {
+  if (err instanceof Error) {
+    const message = err.message;
+    const match = message.match(/^API \d+: (.*)$/);
+    if (match && match[1]) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (typeof parsed.detail === "string") {
+          return parsed.detail;
+        }
+        if (Array.isArray(parsed.detail) && parsed.detail[0]?.msg) {
+          return parsed.detail[0].msg;
+        }
+      } catch {
+        return match[1];
+      }
+    }
+    return message;
+  }
+  return "An unexpected error occurred while updating the case.";
+}
+
 export default function FraudInvestigation() {
-  const { data, loading, error, refresh } = useAdminData();
+  const { data: adminData, loading: adminLoading, error: adminError, refresh: refreshAdmin } = useAdminData();
+  const [investigations, setInvestigations] = useState<InvestigationItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [severity, setSeverity] = useState("all");
   const [status, setStatus] = useState("all");
   const [assignee, setAssignee] = useState("all");
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [allAssignees, setAllAssignees] = useState<string[]>([]);
+  const [updatingAlertId, setUpdatingAlertId] = useState<string | null>(null);
+  const [updatingTargetStatus, setUpdatingTargetStatus] =
+    useState<CanonicalAlertStatus | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{
+    alertId: string;
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
 
-  const investigations = useMemo(
-    () => (data ? generateInvestigations(data.asOf) : []),
-    [data],
+  const requestIdRef = useRef(0);
+
+  // Debounce search input to avoid requests on every keystroke
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  // Fetch full assignee list once (or when admin data changes) for dropdown options
+  useEffect(() => {
+    let active = true;
+    fetchFraudInvestigations(new URLSearchParams({ page: "1", page_size: "100" }))
+      .then((res) => {
+        if (!active) return;
+        const distinct = Array.from(new Set(res.items.map((i) => i.assignedTo).filter(Boolean)));
+        setAllAssignees(distinct);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Server-side filtered and paginated fetch
+  const loadInvestigations = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
+    setLoading(true);
+    setError("");
+
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(PAGE_SIZE),
+    });
+
+    if (severity !== "all") params.set("severity", severity);
+    if (status !== "all") params.set("status", status);
+    if (assignee !== "all") params.set("assignee", assignee);
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+
+    try {
+      const res = await fetchFraudInvestigations(params);
+      if (currentRequestId === requestIdRef.current) {
+        setInvestigations(res.items);
+        setTotal(res.total);
+      }
+    } catch (err: unknown) {
+      if (currentRequestId === requestIdRef.current) {
+        setError(err instanceof Error ? err.message : "Failed to load fraud investigations from server.");
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
+    }
+  }, [page, severity, status, assignee, debouncedSearch]);
+
+  useEffect(() => {
+    loadInvestigations();
+  }, [loadInvestigations]);
+
+  const refreshAll = useCallback(() => {
+    refreshAdmin();
+    loadInvestigations();
+  }, [refreshAdmin, loadInvestigations]);
+
+  const handleStatusUpdate = useCallback(
+    async (alertId: string, targetStatus: CanonicalAlertStatus) => {
+      setUpdatingAlertId(alertId);
+      setUpdatingTargetStatus(targetStatus);
+      setActionFeedback(null);
+
+      try {
+        await updateFraudAlertStatus(alertId, { status: targetStatus });
+        const targetLabel =
+          targetStatus === "IN_REVIEW"
+            ? "In review"
+            : targetStatus === "ESCALATED"
+            ? "Escalated"
+            : targetStatus === "RESOLVED"
+            ? "Resolved"
+            : "False positive";
+
+        setActionFeedback({
+          alertId,
+          type: "success",
+          message: `Case status successfully updated to ${targetLabel}.`,
+        });
+
+        // Refresh both investigations list and overview summary data
+        await Promise.all([loadInvestigations(), refreshAdmin()]);
+      } catch (err: unknown) {
+        const errorMsg = parseApiError(err);
+        setActionFeedback({
+          alertId,
+          type: "error",
+          message: errorMsg,
+        });
+      } finally {
+        setUpdatingAlertId(null);
+        setUpdatingTargetStatus(null);
+      }
+    },
+    [loadInvestigations, refreshAdmin],
   );
 
-  const filtered = useMemo(
+  // Derive stat banner and cards from the current snapshot
+  const activeFraudAlerts = useMemo(
+    () => (adminData ? activeAlerts(adminData).filter((a: Alert) => a.domain === "Fraud") : []),
+    [adminData],
+  );
+  const openCount = useMemo(
+    () => activeFraudAlerts.filter((a: Alert) => a.status === "Open" || a.status === "In review").length,
+    [activeFraudAlerts],
+  );
+  const activeAlertsCount = activeFraudAlerts.length;
+  const highRiskCount = useMemo(
+    () => (adminData ? adminData.customers.filter((c) => c.risk === "High" || c.risk === "Critical").length : 0),
+    [adminData],
+  );
+
+  const inr = useMemo(
     () =>
-      investigations.filter(
-        (inv) =>
-          (severity === "all" || inv.severity === severity) &&
-          (status === "all" || inv.status === status) &&
-          (assignee === "all" || inv.assignedTo === assignee) &&
-          (search === "" ||
-            inv.id.toLowerCase().includes(search.toLowerCase()) ||
-            inv.customerName.toLowerCase().includes(search.toLowerCase()) ||
-            inv.type.toLowerCase().includes(search.toLowerCase()) ||
-            inv.alertId.toLowerCase().includes(search.toLowerCase())),
-      ),
-    [investigations, severity, status, assignee, search],
+      new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+      }),
+    [],
   );
-
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-
-  if (loading) return <LoadingState />;
-  if (error || !data) return <ErrorState message={error} retry={refresh} />;
-
-  const openCount = investigations.filter(
-    (i) => i.status === "Open" || i.status === "In review",
-  ).length;
-  const escalatedCount = investigations.filter(
-    (i) => i.status === "Escalated",
-  ).length;
-  const resolvedCount = investigations.filter(
-    (i) => i.status === "Resolved" || i.status === "False positive",
-  ).length;
-  const assignees = Array.from(
-    new Set(investigations.map((i) => i.assignedTo)),
-  );
-
-  const inr = new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  });
 
   function resetFilters() {
     setSearch("");
+    setDebouncedSearch("");
     setSeverity("all");
     setStatus("all");
     setAssignee("all");
     setPage(1);
+    setActionFeedback(null);
+  }
+
+  if (adminLoading) return <LoadingState />;
+  if (adminError || !adminData) {
+    return <ErrorState message={adminError || "Unable to load dashboard data."} retry={refreshAll} />;
   }
 
   return (
@@ -245,11 +278,8 @@ export default function FraudInvestigation() {
         subtitle="Manage and track open fraud investigations, escalations and resolutions."
         action={
           <div className="admin-title-actions">
-            <span className="admin-date">
-              <CalendarDays size={16} />
-              {localDate(data.asOf)}
-            </span>
-            <button className="button secondary small" onClick={refresh}>
+            <AdminHeaderDate snapshotDate={adminData.asOf} />
+            <button className="button secondary small" onClick={refreshAll}>
               <RefreshCw size={15} /> Refresh
             </button>
           </div>
@@ -263,11 +293,10 @@ export default function FraudInvestigation() {
           </span>
           <div>
             <h2>
-              {openCount} active investigation{openCount !== 1 ? "s" : ""} in
-              progress.
+              {openCount} active investigation{openCount !== 1 ? "s" : ""} in progress.
             </h2>
             <p>
-              {escalatedCount} escalated · {resolvedCount} closed in this cycle.
+              {activeAlertsCount} active fraud alert{activeAlertsCount !== 1 ? "s" : ""} · {highRiskCount} high-risk customer{highRiskCount !== 1 ? "s" : ""}.
             </p>
           </div>
         </div>
@@ -285,22 +314,22 @@ export default function FraudInvestigation() {
           note="Active cases under review"
         />
         <StatCard
-          label="Escalated"
-          value={escalatedCount}
+          label="Active fraud alerts"
+          value={activeAlertsCount}
           icon={ShieldAlert}
           tone="red"
-          note="Cases requiring senior analyst review"
+          note="Unresolved security detections"
         />
         <StatCard
-          label="Resolved"
-          value={resolvedCount}
+          label="High-risk customers"
+          value={highRiskCount}
           icon={CheckCircle}
           tone="green"
-          note="Closed in the current monitoring period"
+          note="Customers with elevated risk profiles"
         />
         <StatCard
           label="Analysts assigned"
-          value={assignees.length}
+          value={allAssignees.length}
           icon={User}
           note="Analysts with active case assignments"
         />
@@ -315,7 +344,6 @@ export default function FraudInvestigation() {
             value={search}
             onChange={(v) => {
               setSearch(v);
-              setPage(1);
             }}
             placeholder="Search by case ID, customer, alert or type…"
           />
@@ -357,7 +385,7 @@ export default function FraudInvestigation() {
             value={assignee}
             options={[
               { value: "all", label: "All analysts" },
-              ...assignees.map((a) => ({ value: a, label: a })),
+              ...allAssignees.map((a) => ({ value: a, label: a })),
             ]}
             onChange={(v) => {
               setAssignee(v);
@@ -368,8 +396,7 @@ export default function FraudInvestigation() {
         </div>
         <div className="admin-filter-caption">
           <span>
-            {filtered.length} case{filtered.length !== 1 ? "s" : ""} match
-            current filters
+            {total} case{total !== 1 ? "s" : ""} match current filters
           </span>
           <button className="text-link" onClick={resetFilters}>
             <Filter size={12} /> Reset filters
@@ -381,7 +408,11 @@ export default function FraudInvestigation() {
         title="Investigations"
         subtitle="All fraud cases with investigation notes and analyst assignments"
       >
-        {paginated.length === 0 ? (
+        {loading ? (
+          <LoadingState />
+        ) : error ? (
+          <ErrorState message={error} retry={loadInvestigations} />
+        ) : investigations.length === 0 ? (
           <EmptyState
             title="No matching investigations"
             message="Try adjusting the search or filter options."
@@ -390,8 +421,16 @@ export default function FraudInvestigation() {
         ) : (
           <>
             <div className="admin-investigations-list">
-              {paginated.map((inv) => {
+              {investigations.map((inv) => {
                 const isExpanded = expanded === inv.id;
+                const isUpdatingThisAlert = updatingAlertId === inv.alertId;
+                const canMarkInReview = isActionAllowed(inv.status, "IN_REVIEW");
+                const canEscalate = isActionAllowed(inv.status, "ESCALATED");
+                const canResolve = isActionAllowed(inv.status, "RESOLVED");
+                const canMarkFalsePositive = isActionAllowed(
+                  inv.status,
+                  "FALSE_POSITIVE",
+                );
                 return (
                   <div key={inv.id} className="admin-investigation-card">
                     <div className="admin-investigation-header">
@@ -401,17 +440,24 @@ export default function FraudInvestigation() {
                           <small>↳ {inv.alertId}</small>
                         </div>
                         <div className="admin-investigation-info">
-                          <Link
-                            className="admin-table-link"
-                            href={`/admin/customers/${inv.customerId}`}
-                          >
-                            <User size={12} />
-                            {inv.customerName}
-                          </Link>
+                          {inv.customerId ? (
+                            <Link
+                              className="admin-table-link"
+                              href={`/admin/customers/${inv.customerId}`}
+                            >
+                              <User size={12} />
+                              {inv.customerName}
+                            </Link>
+                          ) : (
+                            <span className="admin-investigation-customer-name">
+                              <User size={12} />
+                              {inv.customerName}
+                            </span>
+                          )}
                           <span className="admin-investigation-type">
                             {inv.type}
                           </span>
-                          {inv.amount && (
+                          {inv.amount != null && (
                             <span className="admin-investigation-amount">
                               {inr.format(inv.amount)}
                             </span>
@@ -467,34 +513,159 @@ export default function FraudInvestigation() {
                         <div className="admin-investigation-notes-heading">
                           <MessageSquare size={14} /> Investigation notes
                         </div>
-                        <ol className="admin-investigation-note-list">
-                          {inv.notes.map((note, i) => (
-                            <li key={i}>{note}</li>
-                          ))}
-                        </ol>
+                        {inv.notes && inv.notes.length > 0 ? (
+                          <ol className="admin-investigation-note-list">
+                            {inv.notes.map((note, i) => (
+                              <li key={i}>{note}</li>
+                            ))}
+                          </ol>
+                        ) : (
+                          <p style={{ color: "#8a94a6", fontSize: "0.85rem", fontStyle: "italic", margin: "0.5rem 0" }}>
+                            No notes recorded for this investigation.
+                          </p>
+                        )}
                         <div className="admin-investigation-actions">
-                          <button className="button secondary small">
-                            Mark in review
-                          </button>
-                          <button className="button secondary small">
-                            Escalate
-                          </button>
-                          <button className="button secondary small">
-                            Resolve
-                          </button>
-                          <button className="button secondary small">
-                            False positive
-                          </button>
-                          <Link
-                            className="text-link"
-                            href={`/admin/customers/${inv.customerId}`}
+                          <button
+                            className="button secondary small"
+                            disabled={isUpdatingThisAlert || !canMarkInReview}
+                            title={
+                              inv.status === "In review"
+                                ? "Case is already in review"
+                                : isUpdatingThisAlert
+                                ? "Updating case status..."
+                                : "Mark case in review"
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(inv.alertId, "IN_REVIEW")
+                            }
                           >
-                            View customer <ArrowUpRight size={14} />
-                          </Link>
+                            {isUpdatingThisAlert &&
+                            updatingTargetStatus === "IN_REVIEW"
+                              ? "Updating..."
+                              : "Mark in review"}
+                          </button>
+                          <button
+                            className="button secondary small"
+                            disabled={isUpdatingThisAlert || !canEscalate}
+                            title={
+                              inv.status === "Escalated"
+                                ? "Case is already escalated"
+                                : inv.status === "Resolved" ||
+                                  inv.status === "False positive"
+                                ? "Reopen case in review before escalating"
+                                : isUpdatingThisAlert
+                                ? "Updating case status..."
+                                : "Escalate case for senior review"
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(inv.alertId, "ESCALATED")
+                            }
+                          >
+                            {isUpdatingThisAlert &&
+                            updatingTargetStatus === "ESCALATED"
+                              ? "Updating..."
+                              : "Escalate"}
+                          </button>
+                          <button
+                            className="button secondary small"
+                            disabled={isUpdatingThisAlert || !canResolve}
+                            title={
+                              inv.status === "Open"
+                                ? "Case must be in review before resolution"
+                                : inv.status === "Resolved"
+                                ? "Case is already resolved"
+                                : inv.status === "False positive"
+                                ? "Case is already closed as false positive"
+                                : isUpdatingThisAlert
+                                ? "Updating case status..."
+                                : "Resolve case"
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(inv.alertId, "RESOLVED")
+                            }
+                          >
+                            {isUpdatingThisAlert &&
+                            updatingTargetStatus === "RESOLVED"
+                              ? "Updating..."
+                              : "Resolve"}
+                          </button>
+                          <button
+                            className="button secondary small"
+                            disabled={
+                              isUpdatingThisAlert || !canMarkFalsePositive
+                            }
+                            title={
+                              inv.status === "Open"
+                                ? "Case must be in review before resolution"
+                                : inv.status === "False positive"
+                                ? "Case is already closed as false positive"
+                                : inv.status === "Resolved"
+                                ? "Case is already resolved"
+                                : isUpdatingThisAlert
+                                ? "Updating case status..."
+                                : "Mark alert as false positive"
+                            }
+                            onClick={() =>
+                              handleStatusUpdate(inv.alertId, "FALSE_POSITIVE")
+                            }
+                          >
+                            {isUpdatingThisAlert &&
+                            updatingTargetStatus === "FALSE_POSITIVE"
+                              ? "Updating..."
+                              : "False positive"}
+                          </button>
+                          {inv.customerId ? (
+                            <Link
+                              className="text-link"
+                              href={`/admin/customers/${inv.customerId}`}
+                            >
+                              View customer <ArrowUpRight size={14} />
+                            </Link>
+                          ) : null}
                         </div>
+                        {actionFeedback &&
+                          actionFeedback.alertId === inv.alertId && (
+                            <div
+                              role="status"
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                fontSize: "0.8rem",
+                                padding: "6px 10px",
+                                borderRadius: "6px",
+                                marginBottom: "8px",
+                                backgroundColor:
+                                  actionFeedback.type === "success"
+                                    ? "#f0fdf4"
+                                    : "#fef2f2",
+                                color:
+                                  actionFeedback.type === "success"
+                                    ? "#166534"
+                                    : "#991b1b",
+                                border: `1px solid ${
+                                  actionFeedback.type === "success"
+                                    ? "#bbf7d0"
+                                    : "#fecaca"
+                                }`,
+                              }}
+                            >
+                              {actionFeedback.type === "success" ? (
+                                <CheckCircle
+                                  size={14}
+                                  style={{ flexShrink: 0 }}
+                                />
+                              ) : (
+                                <AlertCircle
+                                  size={14}
+                                  style={{ flexShrink: 0 }}
+                                />
+                              )}
+                              <span>{actionFeedback.message}</span>
+                            </div>
+                          )}
                         <p className="admin-investigation-disclaimer">
-                          Sample data · Actions connect to backend API
-                          integration pending.
+                          Connected to real alerts · Changes are logged to system audit.
                         </p>
                       </div>
                     )}
@@ -506,7 +677,7 @@ export default function FraudInvestigation() {
               <Pagination
                 page={page}
                 size={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
                 onChange={setPage}
               />
             </div>

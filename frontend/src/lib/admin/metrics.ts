@@ -18,15 +18,30 @@ export const engagement = (sessions: Session[]) =>
         mean(sessions.map((s) => Math.min(100, (s.clicks / s.views) * 100))),
       )
     : 0;
-export const localDate = (date: string, withTime = false) =>
-  new Intl.DateTimeFormat("en-IN", {
+export const localDate = (date?: string | Date | null, withTime = false) => {
+  if (!date) {
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "2-digit",
+      month: "short",
+      ...(withTime
+        ? { hour: "2-digit", minute: "2-digit" }
+        : { year: "numeric" }),
+    }).format(new Date());
+  }
+  const d =
+    typeof date === "string"
+      ? new Date(date.length === 10 ? `${date}T12:00:00+05:30` : date)
+      : date;
+  return new Intl.DateTimeFormat("en-IN", {
     timeZone: "Asia/Kolkata",
     day: "2-digit",
     month: "short",
     ...(withTime
       ? { hour: "2-digit", minute: "2-digit" }
       : { year: "numeric" }),
-  }).format(new Date(date.length === 10 ? `${date}T12:00:00+05:30` : date));
+  }).format(d);
+};
 export function periodBounds(period: string, asOf: string) {
   const date = new Date(`${asOf}T12:00:00Z`);
   date.setUTCDate(

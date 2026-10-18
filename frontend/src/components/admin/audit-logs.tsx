@@ -1,13 +1,11 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import {
   FileText,
   Shield,
   RefreshCw,
-  CalendarDays,
   Download,
   Filter,
-  User,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -21,10 +19,9 @@ import type { LucideIcon } from "lucide-react";
 import { useAdminData } from "./use-admin-data";
 import {
   PageTitle,
+  AdminHeaderDate,
   ChartCard,
   DataTable,
-  RiskBadge,
-  StatusBadge,
   FilterDropdown,
   SearchBar,
   EmptyState,
@@ -34,6 +31,8 @@ import {
   Pagination,
 } from "./ui";
 import { localDate } from "@/lib/admin/metrics";
+import type { AuditEntry, AuditSummary } from "@/lib/admin/types";
+import { fetchAuditLogs, exportAllAuditLogs } from "@/lib/admin/api";
 
 const ACTION_ICONS: Record<string, LucideIcon> = {
   Login: LogIn,
@@ -44,158 +43,223 @@ const ACTION_ICONS: Record<string, LucideIcon> = {
   "Transaction view": Eye,
   "Alert review": AlertCircle,
   "Alert resolved": CheckCircle,
+  "Customer registered": Edit,
+  "Transfer created": CheckCircle,
+  "Transfer completed": CheckCircle,
+  "Transfer cancelled": AlertCircle,
+  "Bill payment": CheckCircle,
+  "Payee created": Edit,
+  "Payee updated": Edit,
+  "Payee deactivated": AlertCircle,
+  "Investment purchase": CheckCircle,
+  "Loan application": Edit,
 };
-
-type AuditEntry = {
-  id: string;
-  actor: string;
-  actorRole: string;
-  action: string;
-  resource: string;
-  resourceId: string;
-  outcome: "Success" | "Failure" | "Warning";
-  ipAddress: string;
-  timestamp: string;
-  customerId?: string;
-};
-
-function generateAuditLogs(asOf: string): AuditEntry[] {
-  const actors = [
-    { name: "Alex Shah", role: "Administrator" },
-    { name: "Priya Iyer", role: "Fraud Analyst" },
-    { name: "Ravi Kumar", role: "Compliance Officer" },
-    { name: "Sneha Gupta", role: "Relationship Manager" },
-    { name: "Amit Verma", role: "Fraud Analyst" },
-  ];
-  const actions = [
-    { action: "Login", resource: "Auth", outcome: "Success" as const },
-    {
-      action: "Alert review",
-      resource: "Fraud Alert",
-      outcome: "Success" as const,
-    },
-    {
-      action: "Alert resolved",
-      resource: "Fraud Alert",
-      outcome: "Success" as const,
-    },
-    {
-      action: "Account view",
-      resource: "Customer Account",
-      outcome: "Success" as const,
-    },
-    {
-      action: "Transaction view",
-      resource: "Transaction",
-      outcome: "Success" as const,
-    },
-    {
-      action: "Profile update",
-      resource: "Customer Profile",
-      outcome: "Success" as const,
-    },
-    { action: "Login", resource: "Auth", outcome: "Failure" as const },
-    {
-      action: "Password change",
-      resource: "Auth",
-      outcome: "Success" as const,
-    },
-    {
-      action: "Alert review",
-      resource: "Compliance Alert",
-      outcome: "Warning" as const,
-    },
-    { action: "Logout", resource: "Auth", outcome: "Success" as const },
-  ];
-  const ips = [
-    "192.168.1.42",
-    "10.0.0.15",
-    "172.16.0.88",
-    "192.168.10.5",
-    "10.1.2.34",
-  ];
-  const customerIds = ["C1001", "C1002", "C1003", "C1004", "C1005", "C1006"];
-  const logs: AuditEntry[] = [];
-  const base = new Date(`${asOf}T10:00:00+05:30`);
-  for (let i = 0; i < 48; i++) {
-    const actor = actors[i % actors.length];
-    const act = actions[i % actions.length];
-    const offset = i * 23 * 60 * 1000;
-    const ts = new Date(base.getTime() - offset).toISOString();
-    logs.push({
-      id: `AL-${3100 + i}`,
-      actor: actor.name,
-      actorRole: actor.role,
-      action: act.action,
-      resource: act.resource,
-      resourceId:
-        act.resource === "Auth"
-          ? `USER-${1001 + (i % 5)}`
-          : act.resource.includes("Customer")
-            ? customerIds[i % customerIds.length]
-            : `FA-${2030 + i}`,
-      outcome: act.outcome,
-      ipAddress: ips[i % ips.length],
-      timestamp: ts,
-      customerId:
-        act.resource !== "Auth"
-          ? customerIds[i % customerIds.length]
-          : undefined,
-    });
-  }
-  return logs;
-}
 
 const PAGE_SIZE = 15;
 
+/**
+ * Escapes a cell value for RFC 4180 CSV compliance and protects against
+ * spreadsheet formula injection (CWE-1236 / CSV injection).
+ */
+function escapeCsvCell(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '""';
+  }
+  let str = String(value);
+
+  // Formula injection defense: if value begins with =, +, -, @, \t, or \r,
+  // prepend a single quote to force spreadsheet programs (Excel, Calc, Sheets) to treat it as text.
+  const formulaTriggers = ["=", "+", "-", "@", "\t", "\r"];
+  if (formulaTriggers.some((trigger) => str.startsWith(trigger))) {
+    str = `'${str}`;
+  }
+
+  // Standard CSV escaping: double any embedded double-quotes and enclose the cell in quotes.
+  const escaped = str.replace(/"/g, '""');
+  return `"${escaped}"`;
+}
+
 export default function AuditLogs() {
-  const { data, loading, error, refresh } = useAdminData();
+  const { data, loading: adminLoading, error: adminError, refresh: refreshAdmin } =
+    useAdminData();
+  const [logs, setLogs] = useState<AuditEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<AuditSummary | null>(null);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [logsError, setLogsError] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [actor, setActor] = useState("all");
   const [action, setAction] = useState("all");
   const [outcome, setOutcome] = useState("all");
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
-  const logs = useMemo(
-    () => (data ? generateAuditLogs(data.asOf) : []),
-    [data],
-  );
+  const requestIdRef = useRef(0);
 
-  const filtered = useMemo(
-    () =>
-      logs.filter(
-        (log) =>
-          (actor === "all" || log.actor === actor) &&
-          (action === "all" || log.action === action) &&
-          (outcome === "all" || log.outcome === outcome) &&
-          (search === "" ||
-            log.id.toLowerCase().includes(search.toLowerCase()) ||
-            log.actor.toLowerCase().includes(search.toLowerCase()) ||
-            log.action.toLowerCase().includes(search.toLowerCase()) ||
-            log.resource.toLowerCase().includes(search.toLowerCase())),
-      ),
-    [logs, actor, action, outcome, search],
-  );
+  // Debounce search input to avoid requests on every keystroke
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Server-side filtered and paginated fetch
+  const loadAuditLogs = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
+    setLogsLoading(true);
+    setLogsError("");
 
-  if (loading) return <LoadingState />;
-  if (error || !data) return <ErrorState message={error} retry={refresh} />;
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(PAGE_SIZE),
+    });
 
-  const actors = Array.from(new Set(logs.map((l) => l.actor)));
-  const actions = Array.from(new Set(logs.map((l) => l.action)));
+    if (actor !== "all") params.set("actor", actor);
+    if (action !== "all") params.set("action", action);
+    if (outcome !== "all") params.set("outcome", outcome);
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
 
-  const successCount = logs.filter((l) => l.outcome === "Success").length;
-  const failureCount = logs.filter((l) => l.outcome === "Failure").length;
-  const warningCount = logs.filter((l) => l.outcome === "Warning").length;
+    try {
+      const res = await fetchAuditLogs(params);
+      if (currentRequestId === requestIdRef.current) {
+        setLogs(res.items);
+        setTotal(res.total);
+        setSummary(res.summary);
+      }
+    } catch (err: unknown) {
+      if (currentRequestId === requestIdRef.current) {
+        setLogsError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load audit logs from server.",
+        );
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setLogsLoading(false);
+      }
+    }
+  }, [page, actor, action, outcome, debouncedSearch]);
+
+  useEffect(() => {
+    loadAuditLogs();
+  }, [loadAuditLogs]);
+
+  const refreshAll = useCallback(() => {
+    refreshAdmin();
+    loadAuditLogs();
+  }, [refreshAdmin, loadAuditLogs]);
 
   function resetFilters() {
     setSearch("");
+    setDebouncedSearch("");
     setActor("all");
     setAction("all");
     setOutcome("all");
     setPage(1);
   }
+
+  // Client-side CSV export of ALL records matching current filters across pages
+  const handleExportCsv = useCallback(async () => {
+    if (total === 0 || isExporting) return;
+    setIsExporting(true);
+    setExportProgress("Preparing export...");
+    setExportError(null);
+
+    try {
+      // Build query params for currently active search and filters (without pagination)
+      const exportParams = new URLSearchParams();
+      if (actor !== "all") exportParams.set("actor", actor);
+      if (action !== "all") exportParams.set("action", action);
+      if (outcome !== "all") exportParams.set("outcome", outcome);
+      if (debouncedSearch.trim()) exportParams.set("search", debouncedSearch.trim());
+
+      const allLogs = await exportAllAuditLogs(
+        exportParams,
+        (loaded, totalCount) => {
+          setExportProgress(`Exporting (${loaded}/${totalCount})...`);
+        },
+      );
+
+      if (allLogs.length === 0) {
+        setExportError("No matching records found to export.");
+        return;
+      }
+
+      const headers = [
+        "Log ID",
+        "Actor",
+        "Role",
+        "Action",
+        "Resource",
+        "Resource ID",
+        "Outcome",
+        "IP Address",
+        "Timestamp",
+      ];
+
+      const rows = allLogs.map((log) => [
+        escapeCsvCell(log.id),
+        escapeCsvCell(log.actor),
+        escapeCsvCell(log.actorRole),
+        escapeCsvCell(log.action),
+        escapeCsvCell(log.resource),
+        escapeCsvCell(log.resourceId),
+        escapeCsvCell(log.outcome),
+        escapeCsvCell(log.ipAddress),
+        escapeCsvCell(log.timestamp),
+      ]);
+
+      const csvContent =
+        "\uFEFF" +
+        [headers.map(escapeCsvCell).join(","), ...rows.map((e) => e.join(","))].join("\r\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `audit_logs_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      setExportError(
+        err instanceof Error
+          ? `Export failed: ${err.message}`
+          : "Failed to export audit logs. Please try again.",
+      );
+    } finally {
+      setIsExporting(false);
+      setExportProgress(null);
+    }
+  }, [total, isExporting, actor, action, outcome, debouncedSearch]);
+
+  const actors = useMemo(() => {
+    const list = summary?.availableActors ?? [];
+    if (list.length > 0) return list;
+    return Array.from(new Set(logs.map((l) => l.actor))).filter(Boolean);
+  }, [summary, logs]);
+
+  const actions = useMemo(() => {
+    const list = summary?.availableActions ?? [];
+    if (list.length > 0) return list;
+    return Array.from(new Set(logs.map((l) => l.action))).filter(Boolean);
+  }, [summary, logs]);
+
+  if (adminLoading) return <LoadingState />;
+  if (adminError || !data)
+    return <ErrorState message={adminError} retry={refreshAll} />;
+
+  const totalEvents = summary?.totalEvents ?? total;
+  const successCount = summary?.successCount ?? total;
+  const failureCount = summary?.failureCount ?? 0;
+  const warningCount = summary?.warningCount ?? 0;
 
   return (
     <>
@@ -204,11 +268,8 @@ export default function AuditLogs() {
         subtitle="Complete record of all internal workspace actions, access events and system changes."
         action={
           <div className="admin-title-actions">
-            <span className="admin-date">
-              <CalendarDays size={16} />
-              {localDate(data.asOf)}
-            </span>
-            <button className="button secondary small" onClick={refresh}>
+            <AdminHeaderDate />
+            <button className="button secondary small" onClick={refreshAll}>
               <RefreshCw size={15} /> Refresh
             </button>
           </div>
@@ -223,20 +284,53 @@ export default function AuditLogs() {
           <div>
             <h2>Complete audit trail for your workspace.</h2>
             <p>
-              {logs.length} events recorded · {failureCount} failed attempts ·{" "}
+              {totalEvents} events recorded · {failureCount} failed attempts ·{" "}
               {warningCount} warnings requiring review.
             </p>
           </div>
         </div>
-        <button className="button secondary small">
-          <Download size={15} /> Export CSV
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+          <button
+            className="button secondary small"
+            onClick={handleExportCsv}
+            disabled={total === 0 || isExporting}
+            title={
+              total === 0
+                ? "No logs match current filters to export"
+                : `Export all ${total} matching events to CSV`
+            }
+          >
+            {isExporting ? (
+              <>
+                <RefreshCw size={15} style={{ animation: "spin 1s linear infinite" }} />
+                <span>{exportProgress || "Exporting..."}</span>
+              </>
+            ) : (
+              <>
+                <Download size={15} />
+                <span>Export CSV</span>
+              </>
+            )}
+          </button>
+          {exportError && (
+            <span
+              role="alert"
+              style={{
+                fontSize: "0.75rem",
+                color: "#dc2626",
+                marginTop: "4px",
+              }}
+            >
+              {exportError}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="admin-stats four">
         <StatCard
           label="Total events"
-          value={logs.length}
+          value={totalEvents}
           icon={FileText}
           note="All recorded audit events"
         />
@@ -252,14 +346,14 @@ export default function AuditLogs() {
           value={failureCount}
           icon={AlertCircle}
           tone="red"
-          note="Actions that failed or were blocked"
+          note="Recorded in Security Events table"
         />
         <StatCard
           label="Warnings"
           value={warningCount}
           icon={Clock}
           tone="amber"
-          note="Actions requiring review"
+          note="Security anomalies requiring review"
         />
       </div>
 
@@ -272,7 +366,6 @@ export default function AuditLogs() {
             value={search}
             onChange={(v) => {
               setSearch(v);
-              setPage(1);
             }}
             placeholder="Search by log ID, actor, action or resource…"
           />
@@ -320,8 +413,7 @@ export default function AuditLogs() {
         </div>
         <div className="admin-filter-caption">
           <span>
-            {filtered.length} event{filtered.length !== 1 ? "s" : ""} match
-            current filters
+            {total} event{total !== 1 ? "s" : ""} match current filters
           </span>
           <button className="text-link" onClick={resetFilters}>
             <Filter size={12} /> Reset filters
@@ -333,7 +425,11 @@ export default function AuditLogs() {
         title="Audit trail"
         subtitle="All workspace access events, sorted newest first"
       >
-        {paginated.length === 0 ? (
+        {logsLoading ? (
+          <LoadingState />
+        ) : logsError ? (
+          <ErrorState message={logsError} retry={loadAuditLogs} />
+        ) : logs.length === 0 ? (
           <EmptyState
             title="No matching events"
             message="Try adjusting your search or filter options."
@@ -353,7 +449,7 @@ export default function AuditLogs() {
                 "Timestamp",
               ]}
             >
-              {paginated.map((log) => {
+              {logs.map((log) => {
                 const Icon = ACTION_ICONS[log.action] || Shield;
                 const outcomeClass =
                   log.outcome === "Success"
@@ -409,7 +505,7 @@ export default function AuditLogs() {
               <Pagination
                 page={page}
                 size={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
                 onChange={setPage}
               />
             </div>

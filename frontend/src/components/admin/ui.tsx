@@ -350,3 +350,5 @@ export function MiniTrend({
     </div>
   );
 }
+
+export { AdminHeaderDate, useCurrentDate } from "./admin-header-date";

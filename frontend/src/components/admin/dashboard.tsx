@@ -7,7 +7,6 @@ import {
   ScanSearch,
   FileWarning,
   Activity,
-  CalendarDays,
   RefreshCw,
   ArrowUpRight,
   Clock,
@@ -15,6 +14,7 @@ import {
 import { useAdminData } from "./use-admin-data";
 import {
   PageTitle,
+  AdminHeaderDate,
   StatCard,
   ChartCard,
   DataTable,
@@ -47,10 +47,7 @@ export default function Dashboard() {
         subtitle="Overview of banking activity, customer behaviour and risk monitoring."
         action={
           <div className="admin-title-actions">
-            <span className="admin-date">
-              <CalendarDays size={16} />
-              {localDate(data.asOf)}
-            </span>
+            <AdminHeaderDate snapshotDate={data.asOf} />
             <button className="button secondary small" onClick={refresh}>
               <RefreshCw size={15} /> Refresh
             </button>
@@ -108,6 +105,7 @@ export default function Dashboard() {
         <StatCard
           label="Compliance alerts"
           value={
+            data.summary?.complianceAlerts ??
             activeAlerts(data).filter((a) => a.domain === "Compliance").length
           }
           icon={FileWarning}

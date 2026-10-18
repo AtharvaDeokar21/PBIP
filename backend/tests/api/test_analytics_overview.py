@@ -1,9 +1,14 @@
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import func, select
 
 from app.core.database import get_db
 from app.main import app
+from app.models.banking import Transaction
 from app.models.identity import Customer, User
 from tests.conftest import GENERATED_PASSWORD
 
@@ -64,3 +69,38 @@ async def test_overview_empty_optional_tables_returns_empty_sections(admin_clien
 async def test_overview_forbids_customer(client):
     response = await client.get("/api/v1/analytics/overview")
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_overview_compliance_alerts_reflects_open_derived_alerts(admin_client, seed, session_factory):
+    """Overview summary complianceAlerts accurately reflects open derived compliance alerts."""
+    async with session_factory() as db:
+        # Eligible transaction: 1,200,000 COMPLETED triggers Rule 1
+        txn1 = Transaction(
+            id=uuid.uuid4(),
+            account_id=seed.funded_account.id,
+            transaction_reference=f"REF-COMPL-OV-{uuid.uuid4().hex[:6]}",
+            transaction_type="DEBIT",
+            amount=Decimal("1200000.00"),
+            currency="INR",
+            transaction_status="COMPLETED",
+            transaction_date=datetime.now(timezone.utc),
+        )
+        # Ineligible transaction: 1,500,000 but PENDING (does not trigger alert)
+        txn2 = Transaction(
+            id=uuid.uuid4(),
+            account_id=seed.funded_account.id,
+            transaction_reference=f"REF-COMPL-OV-PEND-{uuid.uuid4().hex[:6]}",
+            transaction_type="DEBIT",
+            amount=Decimal("1500000.00"),
+            currency="INR",
+            transaction_status="PENDING",
+            transaction_date=datetime.now(timezone.utc),
+        )
+        db.add_all([txn1, txn2])
+        await db.commit()
+
+    response = await admin_client.get("/api/v1/analytics/overview")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["summary"]["complianceAlerts"] >= 1
