@@ -238,6 +238,12 @@
   border-radius: 7px;
   white-space: nowrap;
 }
+.admin-snapshot-tag {
+  background: #fbf9fd;
+  border-color: #dfd4e8;
+  color: #6d5b7a;
+  font-weight: 500;
+}
 .admin-app .button.small {
   font-size: 10px;
   gap: 8px;
@@ -492,15 +498,18 @@
 .admin-badge.risk-low,
 .admin-badge.status-active,
 .admin-badge.status-resolved,
-.admin-badge.status-completed {
+.admin-badge.status-completed,
+.admin-badge.status-logged {
   background: #eef7f1;
   color: #44856d;
 }
 .admin-badge.risk-medium,
-.admin-badge.status-in-review {
+.admin-badge.status-in-review,
+.admin-badge.status-requires-review {
   background: #fff6e8;
   color: #aa803b;
 }
+
 .admin-badge.risk-high {
   background: #fff0e8;
   color: #bd7754;

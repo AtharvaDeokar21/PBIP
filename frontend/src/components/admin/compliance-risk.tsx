@@ -1,22 +1,21 @@
 "use client";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import {
   FileWarning,
   Scale,
   RefreshCw,
-  CalendarDays,
   ArrowUpRight,
   ShieldAlert,
   CheckCircle,
   AlertTriangle,
   Users,
   Filter,
-  TrendingUp,
 } from "lucide-react";
 import { useAdminData } from "./use-admin-data";
 import {
   PageTitle,
+  AdminHeaderDate,
   ChartCard,
   DataTable,
   RiskBadge,
@@ -31,126 +30,12 @@ import {
   Pagination,
 } from "./ui";
 import { activeAlerts, localDate } from "@/lib/admin/metrics";
-
-type ComplianceAlert = {
-  id: string;
-  customerId: string;
-  customerName: string;
-  type: string;
-  category: "KYC" | "AML" | "Reporting" | "Documentation" | "Transaction";
-  severity: "Low" | "Medium" | "High" | "Critical";
-  status: "Open" | "In review" | "Resolved";
-  dueDate: string;
-  raisedAt: string;
-  description: string;
-  assignedTo: string;
-};
-
-function generateComplianceAlerts(
-  customers: { id: string; name: string }[],
-  asOf: string,
-): ComplianceAlert[] {
-  return [
-    {
-      id: "CA-1088",
-      customerId: "C1011",
-      customerName: "Arjun Singh",
-      type: "Customer review overdue",
-      category: "KYC",
-      severity: "High",
-      status: "Open",
-      dueDate: "2026-10-10",
-      raisedAt: `${asOf}T08:56:00+05:30`,
-      description:
-        "Periodic customer review is 15 days past the due date. Customer documents must be re-verified.",
-      assignedTo: "Ravi Kumar",
-    },
-    {
-      id: "CA-1087",
-      customerId: "C1003",
-      customerName: "Rohan Kapoor",
-      type: "Account documentation review",
-      category: "Documentation",
-      severity: "Medium",
-      status: "Open",
-      dueDate: "2026-10-12",
-      raisedAt: `2026-10-04T14:08:00+05:30`,
-      description:
-        "Supporting documents for the current account are outdated. Updated proof of address required.",
-      assignedTo: "Ravi Kumar",
-    },
-    {
-      id: "CA-1086",
-      customerId: "C1005",
-      customerName: "Kabir Joshi",
-      type: "Suspicious transaction pattern",
-      category: "AML",
-      severity: "High",
-      status: "In review",
-      dueDate: "2026-10-08",
-      raisedAt: `2026-10-03T11:00:00+05:30`,
-      description:
-        "Multiple high-value transactions to an unregistered offshore entity detected in Q3.",
-      assignedTo: "Ravi Kumar",
-    },
-    {
-      id: "CA-1085",
-      customerId: "C1009",
-      customerName: "Vivaan Desai",
-      type: "Threshold reporting required",
-      category: "Reporting",
-      severity: "Medium",
-      status: "In review",
-      dueDate: "2026-10-15",
-      raisedAt: `2026-10-02T09:30:00+05:30`,
-      description:
-        "Cash transaction report must be filed for transactions above ₹10,00,000 in October.",
-      assignedTo: "Ravi Kumar",
-    },
-    {
-      id: "CA-1084",
-      customerId: "C1002",
-      customerName: "Diya Mehta",
-      type: "AML watch list match",
-      category: "AML",
-      severity: "Critical",
-      status: "In review",
-      dueDate: "2026-10-06",
-      raisedAt: `2026-10-01T16:00:00+05:30`,
-      description:
-        "Customer name appears in an updated sanctions cross-reference. Escalation mandated within 48 hours.",
-      assignedTo: "Ravi Kumar",
-    },
-    {
-      id: "CA-1083",
-      customerId: "C1001",
-      customerName: "Aarav Shah",
-      type: "Income declaration mismatch",
-      category: "KYC",
-      severity: "Low",
-      status: "Resolved",
-      dueDate: "2026-09-30",
-      raisedAt: `2026-09-25T10:00:00+05:30`,
-      description:
-        "Declared income inconsistent with transaction volume. Customer submitted revised income proof.",
-      assignedTo: "Ravi Kumar",
-    },
-    {
-      id: "CA-1082",
-      customerId: "C1007",
-      customerName: "Ishaan Patel",
-      type: "Transaction velocity breach",
-      category: "Transaction",
-      severity: "Medium",
-      status: "Resolved",
-      dueDate: "2026-09-28",
-      raisedAt: `2026-09-22T13:00:00+05:30`,
-      description:
-        "Daily transaction count exceeded permissible threshold. Account temporarily rate-limited.",
-      assignedTo: "Ravi Kumar",
-    },
-  ];
-}
+import type {
+  ComplianceAlertItem,
+  ComplianceCategory,
+  ComplianceSummary,
+} from "@/lib/admin/types";
+import { fetchComplianceAlerts } from "@/lib/admin/api";
 
 const CATEGORY_LABELS: Record<string, string> = {
   KYC: "Know Your Customer",
@@ -163,51 +48,97 @@ const CATEGORY_LABELS: Record<string, string> = {
 const PAGE_SIZE = 10;
 
 export default function ComplianceRisk() {
-  const { data, loading, error, refresh } = useAdminData();
+  const { data, loading: adminLoading, error: adminError, refresh: refreshAdmin } = useAdminData();
+  const [alerts, setAlerts] = useState<ComplianceAlertItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<ComplianceSummary | null>(null);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsError, setAlertsError] = useState("");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [severity, setSeverity] = useState("all");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
 
-  const complianceAlerts = useMemo(
-    () =>
-      data
-        ? generateComplianceAlerts(
-            data.customers.map((c) => ({ id: c.id, name: c.name })),
-            data.asOf,
-          )
-        : [],
-    [data],
-  );
+  const requestIdRef = useRef(0);
 
-  const filtered = useMemo(
-    () =>
-      complianceAlerts.filter(
-        (alert) =>
-          (category === "all" || alert.category === category) &&
-          (severity === "all" || alert.severity === severity) &&
-          (status === "all" || alert.status === status) &&
-          (search === "" ||
-            alert.id.toLowerCase().includes(search.toLowerCase()) ||
-            alert.customerName.toLowerCase().includes(search.toLowerCase()) ||
-            alert.type.toLowerCase().includes(search.toLowerCase())),
-      ),
-    [complianceAlerts, category, severity, status, search],
-  );
+  // Debounce search input to avoid requests on every keystroke
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Server-side filtered and paginated fetch
+  const loadComplianceAlerts = useCallback(async () => {
+    const currentRequestId = ++requestIdRef.current;
+    setAlertsLoading(true);
+    setAlertsError("");
 
-  if (loading) return <LoadingState />;
-  if (error || !data) return <ErrorState message={error} retry={refresh} />;
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(PAGE_SIZE),
+    });
 
-  const openCount = complianceAlerts.filter((a) => a.status === "Open").length;
-  const criticalCount = complianceAlerts.filter(
-    (a) => a.severity === "Critical",
-  ).length;
-  const resolvedCount = complianceAlerts.filter(
-    (a) => a.status === "Resolved",
-  ).length;
+    if (category !== "all") params.set("category", category);
+    if (severity !== "all") params.set("severity", severity);
+    if (status !== "all") params.set("status", status);
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+
+    const asOf = data?.asOf?.trim();
+    if (asOf && /^\d{4}-\d{2}-\d{2}$/.test(asOf)) {
+      params.set("as_of", asOf);
+    }
+
+    try {
+      const res = await fetchComplianceAlerts(params);
+      if (currentRequestId === requestIdRef.current) {
+        setAlerts(res.items);
+        setTotal(res.total);
+        setSummary(res.summary);
+      }
+    } catch (err: unknown) {
+      if (currentRequestId === requestIdRef.current) {
+        setAlertsError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load compliance alerts from server.",
+        );
+      }
+    } finally {
+      if (currentRequestId === requestIdRef.current) {
+        setAlertsLoading(false);
+      }
+    }
+  }, [page, category, severity, status, debouncedSearch, data?.asOf]);
+
+  useEffect(() => {
+    loadComplianceAlerts();
+  }, [loadComplianceAlerts]);
+
+  const refreshAll = useCallback(() => {
+    refreshAdmin();
+    loadComplianceAlerts();
+  }, [refreshAdmin, loadComplianceAlerts]);
+
+  function resetFilters() {
+    setSearch("");
+    setDebouncedSearch("");
+    setCategory("all");
+    setSeverity("all");
+    setStatus("all");
+    setPage(1);
+  }
+
+  if (adminLoading) return <LoadingState />;
+  if (adminError || !data) return <ErrorState message={adminError} retry={refreshAll} />;
+
+  const openCount = summary?.openCount ?? 0;
+  const criticalCount = summary?.criticalCount ?? 0;
+  const resolvedCount = summary?.resolvedCount ?? 0;
   const highRiskCustomers = data.customers.filter(
     (c) => c.risk === "High" || c.risk === "Critical",
   ).length;
@@ -220,21 +151,13 @@ export default function ComplianceRisk() {
     "Transaction",
   ].map((label) => ({
     label: CATEGORY_LABELS[label] || label,
-    value: complianceAlerts.filter((a) => a.category === label).length,
+    value: summary?.categoryCounts?.[label] ?? 0,
   }));
 
   const riskRows = ["Low", "Medium", "High", "Critical"].map((label) => ({
     label,
     value: data.customers.filter((c) => c.risk === label).length,
   }));
-
-  function resetFilters() {
-    setSearch("");
-    setCategory("all");
-    setSeverity("all");
-    setStatus("all");
-    setPage(1);
-  }
 
   return (
     <>
@@ -243,11 +166,8 @@ export default function ComplianceRisk() {
         subtitle="Regulatory compliance alerts, risk distribution and customer risk profiles."
         action={
           <div className="admin-title-actions">
-            <span className="admin-date">
-              <CalendarDays size={16} />
-              {localDate(data.asOf)}
-            </span>
-            <button className="button secondary small" onClick={refresh}>
+            <AdminHeaderDate snapshotDate={data.asOf} />
+            <button className="button secondary small" onClick={refreshAll}>
               <RefreshCw size={15} /> Refresh
             </button>
           </div>
@@ -421,7 +341,6 @@ export default function ComplianceRisk() {
             value={search}
             onChange={(v) => {
               setSearch(v);
-              setPage(1);
             }}
             placeholder="Search by alert ID, customer or type…"
           />
@@ -476,15 +395,18 @@ export default function ComplianceRisk() {
         </div>
         <div className="admin-filter-caption">
           <span>
-            {filtered.length} alert{filtered.length !== 1 ? "s" : ""} match
-            current filters
+            {total} alert{total !== 1 ? "s" : ""} match current filters
           </span>
           <button className="text-link" onClick={resetFilters}>
             <Filter size={12} /> Reset filters
           </button>
         </div>
 
-        {paginated.length === 0 ? (
+        {alertsLoading ? (
+          <LoadingState />
+        ) : alertsError ? (
+          <ErrorState message={alertsError} retry={loadComplianceAlerts} />
+        ) : alerts.length === 0 ? (
           <EmptyState
             title="No matching compliance alerts"
             message="Try adjusting the search or filter options."
@@ -505,7 +427,7 @@ export default function ComplianceRisk() {
                 "Raised",
               ]}
             >
-              {paginated.map((alert) => {
+              {alerts.map((alert) => {
                 const isPastDue =
                   alert.status !== "Resolved" && alert.dueDate < data.asOf;
                 return (
@@ -557,7 +479,7 @@ export default function ComplianceRisk() {
               <Pagination
                 page={page}
                 size={PAGE_SIZE}
-                total={filtered.length}
+                total={total}
                 onChange={setPage}
               />
             </div>

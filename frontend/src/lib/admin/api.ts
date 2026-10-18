@@ -2,7 +2,18 @@
  * Lightweight typed API client for the admin workspace.
  * All requests automatically attach the stored JWT token.
  */
-import type { AdminSnapshot } from "./types";
+import type {
+  AdminSnapshot,
+  AuditEntry,
+  AuditLogListResponse,
+  ComplianceAlertListResponse,
+  FraudAlertResponse,
+  FraudAlertUpdatePayload,
+  InvestigationListResponse,
+  OverviewSummary,
+  SecurityEventListResponse,
+} from "./types";
+
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000/api/v1";
 
@@ -116,17 +127,95 @@ export function fetchFilters(search?: string): Promise<FiltersResponse> {
 }
 
 export interface OverviewResponse extends AdminSnapshot {
-  summary: {
-    totalCustomers: number;
-    activeFraudAlerts: number;
-    highRiskCustomers: number;
-    openInvestigations: number;
-    complianceAlerts: number;
-    engagementPct: number;
-  };
+  summary: OverviewSummary;
 }
 
 export function fetchAdminOverview(asOf?: string): Promise<OverviewResponse> {
   const qs = asOf ? `?as_of=${encodeURIComponent(asOf)}` : "";
   return apiFetch(`/analytics/overview${qs}`);
+}
+
+export function fetchFraudInvestigations(
+  params?: URLSearchParams,
+): Promise<InvestigationListResponse> {
+  const qs = params && params.toString() ? `?${params.toString()}` : "";
+  return apiFetch(`/fraud/investigations${qs}`);
+}
+
+export function updateFraudAlertStatus(
+  alertId: string,
+  payload: FraudAlertUpdatePayload,
+): Promise<FraudAlertResponse> {
+  return apiFetch(`/fraud/alerts/${encodeURIComponent(alertId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function fetchComplianceAlerts(
+  params?: URLSearchParams,
+): Promise<ComplianceAlertListResponse> {
+  const qs = params && params.toString() ? `?${params.toString()}` : "";
+  return apiFetch(`/compliance/alerts${qs}`);
+}
+
+export function fetchAuditLogs(
+  params?: URLSearchParams,
+): Promise<AuditLogListResponse> {
+  const qs = params && params.toString() ? `?${params.toString()}` : "";
+  return apiFetch(`/compliance/audit-logs${qs}`);
+}
+
+export function fetchSecurityEvents(
+  params?: URLSearchParams,
+): Promise<SecurityEventListResponse> {
+  const qs = params && params.toString() ? `?${params.toString()}` : "";
+  return apiFetch(`/compliance/security-events${qs}`);
+}
+
+
+/**
+ * Fetches all audit log records matching the given filters in bounded batches (page_size=100)
+ * to avoid unbounded memory spikes while ensuring 100% of matching records are exported.
+ */
+export async function exportAllAuditLogs(
+  baseParams?: URLSearchParams,
+  onProgress?: (loaded: number, total: number) => void,
+): Promise<AuditEntry[]> {
+  const BATCH_SIZE = 100;
+  let page = 1;
+  const allItems: AuditEntry[] = [];
+  const seenIds = new Set<string>();
+
+  while (true) {
+    const params = new URLSearchParams(baseParams);
+    params.set("page", String(page));
+    params.set("page_size", String(BATCH_SIZE));
+
+    const res = await fetchAuditLogs(params);
+    const items = res.items || [];
+    if (items.length === 0) {
+      break;
+    }
+
+    for (const item of items) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        allItems.push(item);
+      }
+    }
+
+    if (onProgress) {
+      onProgress(allItems.length, res.total);
+    }
+
+    // Stop if all items reported by total have been fetched or the returned batch was partial
+    if (allItems.length >= res.total || items.length < BATCH_SIZE) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return allItems;
 }
