@@ -137,7 +137,7 @@ class BehaviourAnalyticsService:
             )
             filters.append(Customer.customer_segment == segment_code)
         if normalized_risk:
-            score = CustomerRiskProfile.fraud_risk_score
+            score = CustomerRiskProfile.overall_risk_score
             risk_filter = {
                 "LOW": and_(score.isnot(None), score < 30),
                 "MEDIUM": and_(score >= 30, score < 60),
@@ -170,7 +170,7 @@ class BehaviourAnalyticsService:
                 select(
                     Customer,
                     User.email,
-                    CustomerRiskProfile.fraud_risk_score,
+                    CustomerRiskProfile.overall_risk_score,
                     func.coalesce(
                         active_alert_count.c.active_alert_count, 0
                     ).label("active_alert_count"),
@@ -206,7 +206,7 @@ class BehaviourAnalyticsService:
             )
             if sort in {"risk", "risk_score"}:
                 postgres_query = postgres_query.order_by(
-                    CustomerRiskProfile.fraud_risk_score.desc().nulls_last(),
+                    CustomerRiskProfile.overall_risk_score.desc().nulls_last(),
                     Customer.last_name,
                     Customer.first_name,
                 )
@@ -270,8 +270,8 @@ class BehaviourAnalyticsService:
                         account_types=row.account_types or [],
                         segment=row.Customer.customer_segment,
                         risk=get_risk_label(
-                            float(row.fraud_risk_score)
-                            if row.fraud_risk_score is not None
+                            float(row.overall_risk_score)
+                            if row.overall_risk_score is not None
                             else None
                         ),
                         active_alert_count=int(row.active_alert_count or 0),
@@ -285,7 +285,7 @@ class BehaviourAnalyticsService:
             select(
                 Customer,
                 User.email,
-                CustomerRiskProfile.fraud_risk_score,
+                CustomerRiskProfile.overall_risk_score,
                 func.coalesce(active_alert_count.c.active_alert_count, 0).label(
                     "active_alert_count"
                 ),
@@ -304,7 +304,7 @@ class BehaviourAnalyticsService:
 
         if sort in {"risk", "risk_score"}:
             customer_query = customer_query.order_by(
-                CustomerRiskProfile.fraud_risk_score.desc().nulls_last(),
+                CustomerRiskProfile.overall_risk_score.desc().nulls_last(),
                 Customer.last_name,
                 Customer.first_name,
             )
@@ -371,8 +371,8 @@ class BehaviourAnalyticsService:
                     account_types=account_types_by_customer.get(row.Customer.id, []),
                     segment=row.Customer.customer_segment,
                     risk=get_risk_label(
-                        float(row.fraud_risk_score)
-                        if row.fraud_risk_score is not None
+                        float(row.overall_risk_score)
+                        if row.overall_risk_score is not None
                         else None
                     ),
                     active_alert_count=int(row.active_alert_count or 0),
@@ -439,7 +439,7 @@ class BehaviourAnalyticsService:
                 select(
                     Customer,
                     User.email,
-                    CustomerRiskProfile.fraud_risk_score,
+                    CustomerRiskProfile.overall_risk_score,
                 )
                 .join(User, User.id == Customer.user_id)
                 .outerjoin(
@@ -508,11 +508,11 @@ class BehaviourAnalyticsService:
         risk_score_by_customer = {}
         for row in customer_rows:
             customer = row.Customer
-            score = float(row.fraud_risk_score or 0)
-            risk = get_risk_label(float(row.fraud_risk_score)) if row.fraud_risk_score is not None else None
+            score = float(row.overall_risk_score or 0)
+            risk = get_risk_label(float(row.overall_risk_score)) if row.overall_risk_score is not None else None
             risk_score_by_customer[customer.id] = (
-                float(row.fraud_risk_score)
-                if row.fraud_risk_score is not None
+                float(row.overall_risk_score)
+                if row.overall_risk_score is not None
                 else None
             )
             accounts = accounts_by_customer.get(customer.id, [])
@@ -928,7 +928,7 @@ class BehaviourAnalyticsService:
         # Customer Behaviour
         cb_q = select(
             Customer.id, Customer.customer_number, Customer.first_name, Customer.last_name, Customer.customer_segment,
-            CustomerRiskProfile.fraud_risk_score
+            CustomerRiskProfile.overall_risk_score
         ).select_from(Customer)\
             .join(rel_cust_subq, Customer.id == rel_cust_subq.c.customer_id)\
             .outerjoin(CustomerRiskProfile, Customer.id == CustomerRiskProfile.customer_id)\
@@ -1002,7 +1002,7 @@ class BehaviourAnalyticsService:
                 avg_session_seconds=c_avg_dur,
                 engagement_pct=c_eng,
                 top_spending_category=c_top_spend,
-                risk=get_risk_label(float(c.fraud_risk_score) if c.fraud_risk_score is not None else None)
+                risk=get_risk_label(float(c.overall_risk_score) if c.overall_risk_score is not None else None)
             ))
             
         tot_q = select(func.count(distinct(Customer.id)))\

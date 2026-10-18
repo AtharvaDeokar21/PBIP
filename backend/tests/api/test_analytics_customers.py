@@ -29,13 +29,13 @@ async def admin_client(session_factory, seed):
         db.add(
             CustomerRiskProfile(
                 customer_id=customers[0].id,
-                fraud_risk_score=Decimal("85"),
+                overall_risk_score=Decimal("85"),
             )
         )
         db.add(
             CustomerRiskProfile(
                 customer_id=customers[1].id,
-                fraud_risk_score=Decimal("45"),
+                overall_risk_score=Decimal("45"),
             )
         )
         event = FraudEvent(
