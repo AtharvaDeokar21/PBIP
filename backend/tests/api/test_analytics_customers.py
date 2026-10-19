@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import datetime, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -8,7 +9,7 @@ from app.core.database import get_db
 from app.main import app
 from app.models.fraud import FraudAlert, FraudEvent
 from app.models.identity import Customer, User
-from app.models.intelligence import CustomerRiskProfile
+from app.models.intelligence import BehaviourEvent, CustomerRiskProfile
 from tests.conftest import GENERATED_PASSWORD
 
 
@@ -28,13 +29,13 @@ async def admin_client(session_factory, seed):
         db.add(
             CustomerRiskProfile(
                 customer_id=customers[0].id,
-                fraud_risk_score=Decimal("85"),
+                overall_risk_score=Decimal("85"),
             )
         )
         db.add(
             CustomerRiskProfile(
                 customer_id=customers[1].id,
-                fraud_risk_score=Decimal("45"),
+                overall_risk_score=Decimal("45"),
             )
         )
         event = FraudEvent(
@@ -84,7 +85,7 @@ async def test_customer_directory_counts_search_filters_and_pagination(
     assert data["total"] == 3
     assert data["pageSize"] == 1
     assert len(data["customers"]) == 1
-    assert data["customers"][0]["risk"] == "CRITICAL"
+    assert data["customers"][0]["risk"] == "Critical"
     assert data["customers"][0]["activeAlertCount"] == 1
 
     async with session_factory() as db:
@@ -111,3 +112,85 @@ async def test_customer_directory_counts_search_filters_and_pagination(
 async def test_customer_directory_forbids_customer(client):
     response = await client.get("/api/v1/analytics/customers")
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_three_analytics_endpoints_share_customer_risk_level(
+    admin_client, session_factory
+):
+    async with session_factory() as db:
+        customer = await db.scalar(select(Customer).order_by(Customer.created_at))
+        db.add(
+            BehaviourEvent(
+                customer_id=customer.id,
+                event_type="PAGE_VIEW",
+                page="/portal/dashboard",
+                action="VIEW",
+                session_duration=30,
+                event_metadata={},
+                timestamp=datetime.now(timezone.utc),
+            )
+        )
+        await db.commit()
+
+    directory = await admin_client.get("/api/v1/analytics/customers?page_size=100")
+    overview = await admin_client.get("/api/v1/analytics/overview")
+    behaviour = await admin_client.get("/api/v1/analytics/behaviour?page_size=100")
+
+    assert directory.status_code == overview.status_code == behaviour.status_code == 200
+    directory_customer = next(
+        item
+        for item in directory.json()["customers"]
+        if item["id"] == str(customer.id)
+    )
+    overview_customer = next(
+        item
+        for item in overview.json()["customers"]
+        if item["id"] == str(customer.id)
+    )
+    behaviour_customer = next(
+        item
+        for item in behaviour.json()["customer_behaviour"]["items"]
+        if item["customer_id"] == str(customer.id)
+    )
+    assert (
+        directory_customer["risk"]
+        == overview_customer["risk"]
+        == behaviour_customer["risk"]
+        == "Critical"
+    )
+
+
+@pytest.mark.asyncio
+async def test_behaviour_risk_is_null_without_profile(admin_client, session_factory):
+    async with session_factory() as db:
+        customer = await db.scalar(
+            select(Customer)
+            .where(
+                ~Customer.id.in_(
+                    select(CustomerRiskProfile.customer_id)
+                )
+            )
+            .order_by(Customer.created_at.desc())
+        )
+        db.add(
+            BehaviourEvent(
+                customer_id=customer.id,
+                event_type="PAGE_VIEW",
+                page="/portal/dashboard",
+                action="VIEW",
+                session_duration=30,
+                event_metadata={},
+                timestamp=datetime.now(timezone.utc),
+            )
+        )
+        await db.commit()
+
+    response = await admin_client.get("/api/v1/analytics/behaviour?page_size=100")
+    assert response.status_code == 200
+    item = next(
+        item
+        for item in response.json()["customer_behaviour"]["items"]
+        if item["customer_id"] == str(customer.id)
+    )
+    assert item["risk"] is None

@@ -14,27 +14,28 @@ so the dataset is either fully written or fully rolled back.
 from __future__ import annotations
 
 import asyncio
+import argparse
+import logging
 import sys
 import time
-import logging
-logging.getLogger("passlib").setLevel(logging.ERROR)
 
-import argparse
-
-from sqlalchemy import func, select, text, delete
+from sqlalchemy import delete, select, text
 
 from app.core.config import settings
-from app.core.database import AsyncSessionLocal, create_async_engine, async_sessionmaker, AsyncSession
+from app.core.database import AsyncSession, async_sessionmaker, create_async_engine
 from app.models.identity import User, Customer
 from app.models.banking import Account, Transaction
-from app.models.intelligence import BehaviourEvent
+from app.models.intelligence import BehaviourEvent, CustomerRiskProfile
 from app.models.fraud import FraudEvent, FraudAlert
+from app.intelligence.analytics.risk import recalculate_risk_profiles
 
 from data.generators.behaviour_generator import generate_behaviour_events
 from data.generators.config import NUM_CUSTOMERS, SEED
 from data.generators.customer_generator import generate_customers
 from data.generators.fraud_generator import inject_fraud_scenarios
 from data.generators.transaction_generator import generate_accounts_and_transactions
+
+logging.getLogger("passlib").setLevel(logging.ERROR)
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +45,19 @@ from data.generators.transaction_generator import generate_accounts_and_transact
 async def _count(session, table_name: str) -> int:
     result = await session.execute(text(f"SELECT COUNT(*) FROM {table_name}"))
     return result.scalar_one()
+
+
+async def _delete_generated_data(session: AsyncSession, customer_ids, user_ids) -> None:
+    await session.execute(delete(FraudAlert).where(FraudAlert.customer_id.in_(customer_ids)))
+    await session.execute(delete(FraudEvent).where(FraudEvent.customer_id.in_(customer_ids)))
+    await session.execute(delete(CustomerRiskProfile).where(CustomerRiskProfile.customer_id.in_(customer_ids)))
+    await session.execute(delete(BehaviourEvent).where(BehaviourEvent.customer_id.in_(customer_ids)))
+
+    account_id_subq = select(Account.id).where(Account.customer_id.in_(customer_ids)).scalar_subquery()
+    await session.execute(delete(Transaction).where(Transaction.account_id.in_(account_id_subq)))
+    await session.execute(delete(Account).where(Account.customer_id.in_(customer_ids)))
+    await session.execute(delete(Customer).where(Customer.id.in_(customer_ids)))
+    await session.execute(delete(User).where(User.id.in_(user_ids)))
 
 
 # ---------------------------------------------------------------------------
@@ -89,16 +103,7 @@ async def run(is_reset: bool) -> None:
                     sys.exit(0)
                 
                 print("Resetting existing generated data...")
-                await session.execute(delete(FraudAlert).where(FraudAlert.customer_id.in_(customer_ids)))
-                await session.execute(delete(FraudEvent).where(FraudEvent.customer_id.in_(customer_ids)))
-                await session.execute(delete(BehaviourEvent).where(BehaviourEvent.customer_id.in_(customer_ids)))
-                
-                account_id_subq = select(Account.id).where(Account.customer_id.in_(customer_ids)).scalar_subquery()
-                await session.execute(delete(Transaction).where(Transaction.account_id.in_(account_id_subq)))
-                
-                await session.execute(delete(Account).where(Account.customer_id.in_(customer_ids)))
-                await session.execute(delete(Customer).where(Customer.id.in_(customer_ids)))
-                await session.execute(delete(User).where(User.id.in_(user_ids)))
+                await _delete_generated_data(session, customer_ids, user_ids)
                 print("Reset complete. Generating new data...")
 
             # 1. Customers (users + customers tables)
@@ -121,6 +126,9 @@ async def run(is_reset: bool) -> None:
                 session, customer_records, account_records, txn_records, SEED
             )
 
+            print("[5/5] Calculating customer risk profiles …")
+            await recalculate_risk_profiles(session, customer_ids)
+
         # ----------------------------------------------------------------
         # Final row counts (outside the transaction so we see committed data)
         # ----------------------------------------------------------------
@@ -131,6 +139,7 @@ async def run(is_reset: bool) -> None:
         tables = [
             "users", "customers", "accounts", "transactions",
             "behaviour_events", "fraud_events", "fraud_alerts",
+            "customer_risk_profiles",
         ]
         for tbl in tables:
             n = await _count(session, tbl)

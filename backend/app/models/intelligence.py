@@ -32,6 +32,7 @@ class CustomerRiskProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     risk_tolerance: Mapped[str | None] = mapped_column(String(30))
     credit_score: Mapped[int | None]
     fraud_risk_score: Mapped[float | None] = mapped_column(Numeric(7, 4))
+    overall_risk_score: Mapped[float | None] = mapped_column(Numeric(7, 4))
     financial_health_score: Mapped[float | None] = mapped_column(Numeric(7, 4))
     savings_ratio: Mapped[float | None] = mapped_column(Numeric(7, 4))
     debt_to_income_ratio: Mapped[float | None] = mapped_column(Numeric(7, 4))
