@@ -10,6 +10,9 @@ export type Customer = {
   riskScore: number;
   income: number;
   spending: number;
+  spendingInsights: { category: string; amount: number }[];
+  monthlyIncomeTrend: { month: string; amount: number }[];
+  monthlySpendingTrend: { month: string; amount: number }[];
   interest: Interest | null;
   products: string[];
   accounts: {

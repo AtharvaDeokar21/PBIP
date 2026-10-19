@@ -24,6 +24,9 @@ const customers: Customer[] = records.map(
     riskScore,
     income,
     spending,
+    spendingInsights: [],
+    monthlyIncomeTrend: [],
+    monthlySpendingTrend: [],
     interest,
     products: [
       "Savings account",

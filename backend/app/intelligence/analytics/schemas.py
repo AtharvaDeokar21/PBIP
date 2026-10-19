@@ -136,6 +136,11 @@ class OverviewAccount(_OverviewModel):
     status: str
 
 
+class MonthlyFinancialTrend(_OverviewModel):
+    month: str
+    amount: float
+
+
 class OverviewCustomer(_OverviewModel):
     id: uuid.UUID
     name: str
@@ -145,6 +150,9 @@ class OverviewCustomer(_OverviewModel):
     risk_score: float
     income: float
     spending: float
+    spending_insights: List[SpendingPattern]
+    monthly_income_trend: List["MonthlyFinancialTrend"]
+    monthly_spending_trend: List["MonthlyFinancialTrend"]
     interest: str | None
     products: List[str]
     accounts: List[OverviewAccount]
