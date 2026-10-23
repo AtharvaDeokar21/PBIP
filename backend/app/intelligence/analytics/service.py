@@ -1067,7 +1067,11 @@ class BehaviourAnalyticsService:
             c_products = products_by_customer.get(c.id, [])
             c_prod = max(c_products, key=lambda row: row.cnt).product_category if c_products else None
             c_spending = spending_by_customer.get(c.id, [])
-            c_top_spend = max(c_spending, key=lambda row: row.amt).category if c_spending else None
+            c_top_spend = (
+                display_category(max(c_spending, key=lambda row: row.amt).category)
+                if c_spending
+                else None
+            )
 
             items.append(CustomerBehaviourItem(
                 customer_id=c.id,
