@@ -27,6 +27,7 @@ from app.intelligence.analytics.schemas import (
     CustomerDirectoryItem,
     OverviewTransaction,
     OverviewAccount,
+    MonthlyFinancialTrend,
     CustomerFilterItem,
     CustomerBehaviourData,
     CustomerBehaviourItem,
@@ -43,6 +44,11 @@ from app.intelligence.analytics.constants import (
     SEGMENT_LABELS,
     INCOME_BANDS,
     get_risk_label,
+)
+from app.intelligence.analytics.financial import (
+    DISPLAY_CATEGORIES,
+    calculate_financial_insights,
+    display_category,
 )
 from app.services.compliance_service import ComplianceService
 
@@ -485,24 +491,68 @@ class BehaviourAnalyticsService:
             if current is None or row.views > current.views:
                 interest_by_customer[row.customer_id] = row
 
-        spending_rows = (
+        latest_transaction_rows = (
             await self.db.execute(
                 select(
                     Account.customer_id,
-                    func.coalesce(func.sum(Transaction.amount), 0).label("spending"),
+                    func.max(Transaction.transaction_date).label("latest_date"),
                 )
                 .join(Transaction, Transaction.account_id == Account.id)
-                .where(
-                    Account.customer_id.in_(customer_ids),
-                    Transaction.transaction_type == "DEBIT",
-                    Transaction.transaction_date <= as_of_end,
-                )
+                .where(Account.customer_id.in_(customer_ids))
                 .group_by(Account.customer_id)
             )
         ).all() if customer_ids else []
-        spending_by_customer = {
-            row.customer_id: float(row.spending or 0) for row in spending_rows
+        latest_transaction_by_customer = {
+            row.customer_id: row.latest_date.date()
+            for row in latest_transaction_rows
         }
+        window_starts = [
+            date(
+                latest.year if latest.month > 3 else latest.year - 1,
+                latest.month - 3 if latest.month > 3 else latest.month + 9,
+                1,
+            )
+            for latest in latest_transaction_by_customer.values()
+        ]
+        financial_rows = []
+        if window_starts:
+            transaction_rows = (
+                await self.db.execute(
+                    select(
+                        Account.customer_id,
+                        Transaction.transaction_type,
+                        Transaction.category,
+                        func.date(Transaction.transaction_date).label("transaction_day"),
+                        func.sum(Transaction.amount).label("amount"),
+                    )
+                    .join(Transaction, Transaction.account_id == Account.id)
+                    .where(
+                        Account.customer_id.in_(customer_ids),
+                        Transaction.transaction_date
+                        >= datetime.combine(min(window_starts), datetime.min.time(), tzinfo=timezone.utc),
+                    )
+                    .group_by(
+                        Account.customer_id,
+                        Transaction.transaction_type,
+                        Transaction.category,
+                        func.date(Transaction.transaction_date),
+                    )
+                )
+            ).all()
+            financial_rows = transaction_rows
+        financial_by_customer = defaultdict(list)
+        for row in financial_rows:
+            transaction_day = row.transaction_day
+            if isinstance(transaction_day, str):
+                transaction_day = date.fromisoformat(transaction_day)
+            financial_by_customer[row.customer_id].append(
+                (
+                    row.transaction_type,
+                    row.category,
+                    transaction_day,
+                    float(row.amount or 0),
+                )
+            )
 
         customers = []
         risk_score_by_customer = {}
@@ -515,6 +565,12 @@ class BehaviourAnalyticsService:
                 if row.overall_risk_score is not None
                 else None
             )
+            categories, monthly = calculate_financial_insights(
+                latest_transaction_by_customer.get(customer.id),
+                financial_by_customer.get(customer.id, []),
+            )
+            monthly_income = [entry.income for entry in monthly]
+            monthly_spending = [entry.spending for entry in monthly]
             accounts = accounts_by_customer.get(customer.id, [])
             account_products = [account.account_type.title() for account in accounts]
             products = list(dict.fromkeys(account_products + products_by_customer.get(customer.id, [])))
@@ -526,8 +582,20 @@ class BehaviourAnalyticsService:
                     segment=SEGMENT_LABELS.get(customer.customer_segment, "Standard"),
                     risk=risk,
                     risk_score=score,
-                    income=float(customer.annual_income or 0),
-                    spending=spending_by_customer.get(customer.id, 0),
+                    income=sum(monthly_income) / len(monthly_income),
+                    spending=sum(monthly_spending) / len(monthly_spending),
+                    spending_insights=[
+                        SpendingPattern(category=category, amount=categories[category])
+                        for category in DISPLAY_CATEGORIES
+                    ],
+                    monthly_income_trend=[
+                        MonthlyFinancialTrend(month=entry.label, amount=entry.income)
+                        for entry in monthly
+                    ],
+                    monthly_spending_trend=[
+                        MonthlyFinancialTrend(month=entry.label, amount=entry.spending)
+                        for entry in monthly
+                    ],
                     interest=(
                         interest_by_customer[customer.id].product_category
                         if customer.id in interest_by_customer
@@ -820,9 +888,17 @@ class BehaviourAnalyticsService:
             .join(Account, Transaction.account_id == Account.id)\
             .join(rel_cust_subq, Account.customer_id == rel_cust_subq.c.customer_id)\
             .where(and_(*tx_conds))\
-            .group_by(Transaction.category).order_by(desc("amt")).limit(5)
+            .group_by(Transaction.category)
         spend_res = await self.db.execute(spend_q)
-        spending_patterns = [SpendingPattern(category=r.category, amount=float(r.amt)) for r in spend_res.all()]
+        spending_totals = defaultdict(float)
+        for row in spend_res.all():
+            spending_totals[display_category(row.category)] += float(row.amt or 0)
+        spending_patterns = [
+            SpendingPattern(category=category, amount=amount)
+            for category, amount in sorted(
+                spending_totals.items(), key=lambda item: item[1], reverse=True
+            )
+        ][:5]
         
         # Income Patterns
         inc_q = select(Customer.annual_income)\
@@ -991,7 +1067,11 @@ class BehaviourAnalyticsService:
             c_products = products_by_customer.get(c.id, [])
             c_prod = max(c_products, key=lambda row: row.cnt).product_category if c_products else None
             c_spending = spending_by_customer.get(c.id, [])
-            c_top_spend = max(c_spending, key=lambda row: row.amt).category if c_spending else None
+            c_top_spend = (
+                display_category(max(c_spending, key=lambda row: row.amt).category)
+                if c_spending
+                else None
+            )
 
             items.append(CustomerBehaviourItem(
                 customer_id=c.id,

@@ -59,26 +59,10 @@ export default function CustomerDetails({ id }: { id: string }) {
   const sessions = data.sessions.filter((s) => s.customerId === c.id);
   const alerts = data.alerts.filter((a) => a.customerId === c.id);
   const active = activeAlerts(data, c.id);
-  const spending = [
-    "Food",
-    "Shopping",
-    "Travel",
-    "Utilities",
-    "Entertainment",
-    "Other",
-  ].map((label) => ({
-    label,
-    value: transactions
-      .filter((t) => t.type === "Debit" && t.category === label)
-      .reduce((sum, t) => sum + t.amount, 0),
+  const spending = c.spendingInsights.map((item) => ({
+    label: item.category,
+    value: item.amount,
   }));
-  const monthly = (type: "Credit" | "Debit") =>
-    ["07", "08", "09", "10"].map((month, i) => ({
-      label: ["Jul", "Aug", "Sep", "Oct"][i],
-      value: transactions
-        .filter((t) => t.type === type && t.date.startsWith(`2026-${month}`))
-        .reduce((sum, t) => sum + t.amount, 0),
-    }));
   return (
     <>
       <Link href="/admin/customers" className="text-link admin-back">
@@ -141,13 +125,13 @@ export default function CustomerDetails({ id }: { id: string }) {
           label="Monthly income"
           value={<Money value={c.income} />}
           icon={TrendingUp}
-          note="Illustrative monthly baseline"
+          note="Average across latest 4 calendar months"
         />
         <StatCard
           label="Monthly spending"
           value={<Money value={c.spending} />}
           icon={TrendingDown}
-          note="Illustrative monthly baseline"
+          note="Average across latest 4 calendar months"
         />
         <StatCard
           label="Risk score"
@@ -247,7 +231,7 @@ export default function CustomerDetails({ id }: { id: string }) {
         >
           <HorizontalBars rows={spending} money />
           <div className="admin-inline-metric">
-            <span>Illustrative average monthly spending</span>
+            <span>Average monthly spending</span>
             <strong>
               <Money value={c.spending} />
             </strong>
@@ -289,9 +273,21 @@ export default function CustomerDetails({ id }: { id: string }) {
             transaction amounts.
           </p>
           <h3 className="admin-small-heading">Monthly income trend</h3>
-          <MiniTrend rows={monthly("Credit")} money />
+          <MiniTrend
+            rows={c.monthlyIncomeTrend.map((item) => ({
+              label: item.month,
+              value: item.amount,
+            }))}
+            money
+          />
           <h3 className="admin-small-heading">Monthly spending trend</h3>
-          <MiniTrend rows={monthly("Debit")} money />
+          <MiniTrend
+            rows={c.monthlySpendingTrend.map((item) => ({
+              label: item.month,
+              value: item.amount,
+            }))}
+            money
+          />
         </ChartCard>
       </div>
       <div className="admin-grid two">

@@ -194,3 +194,24 @@ async def test_behaviour_risk_is_null_without_profile(admin_client, session_fact
         if item["customer_id"] == str(customer.id)
     )
     assert item["risk"] is None
+
+
+@pytest.mark.asyncio
+async def test_customer_overview_financial_insights_use_latest_four_months(
+    admin_client, seed
+):
+    response = await admin_client.get("/api/v1/analytics/overview")
+
+    assert response.status_code == 200
+    customer = next(
+        item
+        for item in response.json()["customers"]
+        if item["id"] == str(seed.customer.id)
+    )
+    assert len(customer["spendingInsights"]) == 6
+    assert len(customer["monthlyIncomeTrend"]) == 4
+    assert len(customer["monthlySpendingTrend"]) == 4
+    assert sum(item["amount"] for item in customer["spendingInsights"]) == pytest.approx(
+        sum(item["amount"] for item in customer["monthlySpendingTrend"])
+    )
+    assert customer["monthlySpendingTrend"][-1]["month"] == "Oct"
