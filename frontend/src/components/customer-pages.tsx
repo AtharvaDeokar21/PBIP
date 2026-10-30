@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowUpRight,
@@ -43,23 +43,18 @@ import {
   cancelATransfer,
   useBillers,
   submitBillPayment,
-  useBillHistory,
   useLoanProducts,
   useLoanApplications,
-  checkEligibility,
   submitLoanApplication,
   useInvestmentProducts,
   useTransfers,
-  type Transfer,
   useHoldings,
   buyInvestment,
-  useInsuranceProducts,
   useRecommendations,
   type Account,
   type Transaction,
   type Payee,
   type LoanProduct,
-  type LoanEligibilityResponse,
   type InvestmentProduct,
 } from "./use-customer-api";
 import {
@@ -301,7 +296,7 @@ function Dashboard() {
         description="Here’s your money at a glance. Let’s make today a good one."
       >
         <span className="date-chip">
-          <CalendarDays size={16} /> 26 September 2026
+          <CalendarDays size={16} /> {new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "long", year: "numeric" }).format(new Date())}
         </span>
       </PageHeading>
       <div className="overview-grid">
@@ -310,20 +305,20 @@ function Dashboard() {
             <span>Total available balance</span>
             <Wallet size={19} />
           </div>
-          <h2>
-            ₹2,46,950<span>.00</span>
-          </h2>
+          <h2><Money value={totalBal} /></h2>
           <p>
             <TrendingUp size={14} /> +8.2%{" "}
             <span>from last month · illustrative</span>
           </p>
           <div className="balance-accounts">
-            <span>
-              Savings <strong>₹1,82,450</strong>
-            </span>
-            <span>
-              Current <strong>₹64,500</strong>
-            </span>
+            {(summaryQuery.data?.balances_by_type ?? [
+              { account_type: "SAVINGS", balance: "182450", account_count: 1 },
+              { account_type: "CURRENT", balance: "64500", account_count: 1 },
+            ]).slice(0, 2).map((item) => (
+              <span key={item.account_type}>
+                {item.account_type.replaceAll("_", " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())} <strong><Money value={Number(item.balance)} /></strong>
+              </span>
+            ))}
             <Link href="/portal/accounts" aria-label="View accounts">
               <ArrowUpRight size={23} />
             </Link>
@@ -334,7 +329,7 @@ function Dashboard() {
             <TrendingUp size={22} />
           </span>
           <span className="muted">Your investments</span>
-          <strong>₹1,25,000</strong>
+          <strong><Money value={investBal} /></strong>
           <small className="positive">+ ₹8,450 total illustrative gains</small>
           <TextLink href="/portal/wealth">Explore portfolio</TextLink>
         </div>
@@ -675,14 +670,23 @@ function Payments() {
   const [amount, setAmount] = useState("");
   const [remark, setRemark] = useState("");
   const [date, setDate] = useState("");
-  const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [receiptReference, setReceiptReference] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [biller, setBiller] = useState("Electricity");
-  const [consumer, setConsumer] = useState("");
 
   const accountsQuery = useAccounts();
   const payeesQuery = usePayees();
   const billersQuery = useBillers();
+
+  useEffect(() => {
+    const firstAccountId = accountsQuery.data?.items[0]?.id;
+    if (firstAccountId && account === "savings") setAccount(firstAccountId);
+  }, [accountsQuery.data, account]);
+  useEffect(() => {
+    const firstPayeeId = payeesQuery.data?.[0]?.id;
+    if (firstPayeeId && payee === "p1") setPayee(firstPayeeId);
+  }, [payeesQuery.data, payee]);
 
   const rawPayAccs = accountsQuery.data?.items;
   const accounts = rawPayAccs && rawPayAccs.length > 0
@@ -813,16 +817,6 @@ function Payments() {
                       </button>
                     ))}
                   </div>
-                  <label>
-                    Consumer / bill reference
-                    <input
-                      required
-                      value={consumer}
-                      onChange={(e) => setConsumer(e.target.value)}
-                      placeholder="Enter a sample bill reference"
-                      maxLength={30}
-                    />
-                  </label>
                 </>
               )}
               <label>
@@ -851,7 +845,7 @@ function Payments() {
                   Schedule date (optional)
                   <input
                     type="date"
-                    min={new Date().toLocaleDateString("en-CA")}
+                  min={(() => { const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); return `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, "0")}-${String(tomorrow.getDate()).padStart(2, "0")}`; })()}
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                   />
@@ -886,7 +880,7 @@ function Payments() {
                 <div>
                   <dt>To</dt>
                   <dd>
-                    {tab === "transfer" ? to.name : `${biller} · ${consumer}`}
+                    {tab === "transfer" ? to.name : biller}
                   </dd>
                 </div>
                 <div>
@@ -903,7 +897,7 @@ function Payments() {
                 </div>
               </dl>
               <p className="notice">
-                This is a simulation. No money will be moved.
+                The bank API will validate and save this {tab === "transfer" ? "transfer" : "bill payment"} when you confirm.
               </p>
               <div className="button-row">
                 <button className="button secondary" onClick={() => setStep(0)}>
@@ -918,29 +912,40 @@ function Payments() {
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (otp !== "123456")
-                  return setError(
-                    "Use 123456 to complete this sample verification.",
-                  );
                 setError("");
+                setSubmitting(true);
                 try {
                   if (tab === "transfer") {
-                    await submitTransfer({
-                      source_account_id: from.id,
-                      destination_account_id: to.id,
-                      amount: Number(amount),
-                      remarks: remark || "Transfer",
-                      scheduled_at: date || undefined,
-                    }).catch(() => null);
+                    const isRealAccount = accountsQuery.data?.items.some((item) => item.id === from.id);
+                    const isRealPayee = payeesQuery.data?.some((item) => item.id === to.id);
+                    if (!isRealAccount || !isRealPayee) throw new Error("Live account or payee data is unavailable. Please refresh and try again.");
+                    const result = await submitTransfer({
+                        source_account_id: from.id,
+                        payee_id: to.id,
+                        amount: Number(amount),
+                        transfer_type: date ? "SCHEDULED" : "IMMEDIATE",
+                        remarks: remark || "Transfer",
+                        scheduled_at: date ? new Date(`${date}T23:59:00`).toISOString() : undefined,
+                    });
+                    setReceiptReference(result.reference_number);
                   } else {
-                    await submitBillPayment({
-                      account_id: from.id,
-                      biller_id: billersQuery.data?.[0]?.id ?? "biller_001",
-                      amount: Number(amount),
-                    }).catch(() => null);
+                    const apiBiller = billersQuery.data?.find((candidate) =>
+                      `${candidate.name} ${candidate.category ?? ""}`.toLowerCase().includes(biller.toLowerCase()),
+                    );
+                    const isRealAccount = accountsQuery.data?.items.some((item) => item.id === from.id);
+                    if (!isRealAccount || !apiBiller) throw new Error("Live account or biller data is unavailable. Please refresh and try again.");
+                    const result = await submitBillPayment({
+                        account_id: from.id,
+                        biller_id: apiBiller.id,
+                        amount: Number(amount),
+                    });
+                    setReceiptReference(result.reference_number);
                   }
-                } catch {
-                  /* demo simulation */
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : "The request failed. Please try again.");
+                  return;
+                } finally {
+                  setSubmitting(false);
                 }
                 setStep(3);
               }}
@@ -948,23 +953,8 @@ function Payments() {
               <span className="icon-tile lavender">
                 <ShieldCheck />
               </span>
-              <h2>Confirm it’s you.</h2>
-              <p className="muted">
-                Sample verification code: <strong>123456</strong>. No SMS has
-                been sent.
-              </p>
-              <label>
-                6-digit sample code
-                <input
-                  inputMode="numeric"
-                  pattern="[0-9]{6}"
-                  maxLength={6}
-                  required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  autoComplete="off"
-                />
-              </label>
+              <h2>Confirm this payment.</h2>
+              <p className="muted">Your authenticated banking request will be processed and recorded by the bank API.</p>
               {error && (
                 <p className="form-error" role="alert">
                   {error}
@@ -978,7 +968,7 @@ function Payments() {
                 >
                   Back
                 </button>
-                <button className="button">Confirm simulation</button>
+                <button className="button" disabled={submitting}>{submitting ? "Submitting…" : tab === "transfer" ? "Submit transfer" : "Pay bill"}</button>
               </div>
             </form>
           ) : (
@@ -986,31 +976,23 @@ function Payments() {
               <span className="success-icon">
                 <Check size={32} />
               </span>
-              <span className="eyebrow">VERIFICATION COMPLETE</span>
-              <h2>
-                {date && tab === "transfer"
-                  ? "Schedule preview confirmed."
-                  : "That’s a successful practice run."}
-              </h2>
+              <span className="eyebrow">SAVED TO YOUR ACCOUNT</span>
+              <h2>{date && tab === "transfer" ? "Transfer scheduled." : tab === "transfer" ? "Transfer completed." : "Bill payment submitted."}</h2>
               <p>
                 <Money value={Number(amount)} /> to{" "}
                 {tab === "transfer" ? to.name : biller}
               </p>
-              <p className="muted">
-                No money moved, no schedule was saved, and your balances are
-                unchanged. A live receipt will be available after backend
-                integration.
-              </p>
+              <p className="muted">Reference: {receiptReference}. The API has saved this transaction to your account.</p>
               <button
                 className="button"
                 onClick={() => {
                   setStep(0);
                   setAmount("");
-                  setOtp("");
                   setDate("");
+                  setReceiptReference("");
                 }}
               >
-                Make another sample payment
+                Make another payment
               </button>
             </div>
           )}
@@ -1060,7 +1042,8 @@ function Payees() {
   const [editing, setEditing] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
-  const [number, setNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [ifscCode, setIfscCode] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
 
@@ -1080,7 +1063,8 @@ function Payees() {
     setEditing(id);
     setName(p?.name || "");
     setBank(p?.bank || "");
-    setNumber(p?.number || "");
+    setAccountNumber("");
+    setIfscCode("");
   }
 
   return (
@@ -1094,9 +1078,7 @@ function Payees() {
         </button>
       </PageHeading>
       <p className="notice">
-        Payee changes are previews for this page only. They reset when you
-        navigate away; transfer payees remain sample data. Bank verification is
-        not connected.
+        Payees added, edited or removed here are saved through the customer API. Sample payees are view-only.
       </p>
       {notice && (
         <p role="status" className="notice">
@@ -1136,11 +1118,17 @@ function Payees() {
                 <p>Remove {p.name} from this sample list?</p>
                 <button
                   className="text-link danger"
-                  onClick={() => {
-                    setPayees((ps) => ps.filter((x) => x.id !== p.id));
-                    payeesApi.removePayee(p.id).catch(() => null);
-                    setDeleting(null);
-                    setNotice("Payee removed from this page preview.");
+                  onClick={async () => {
+                    try {
+                      if (!/^[0-9a-f-]{36}$/i.test(p.id)) throw new Error("Sample payees are view-only. Add a live payee to make account changes.");
+                      await payeesApi.removePayee(p.id);
+                      setPayees((ps) => ps.filter((x) => x.id !== p.id));
+                      setNotice("Payee removed.");
+                    } catch (err) {
+                      setNotice(err instanceof Error ? err.message : "Could not remove this payee.");
+                    } finally {
+                      setDeleting(null);
+                    }
                   }}
                 >
                   Confirm removal
@@ -1168,37 +1156,43 @@ function Payees() {
             }
           />
           <form
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              const p = {
-                id: editing === "new" ? `p${Date.now()}` : editing,
-                name: name.trim(),
-                bank: bank.trim(),
-                number,
-              };
-              if (!p.name || !p.bank) return;
-              if (editing === "new") {
-                payeesApi.addPayee({
-                  name: p.name,
-                  bank_name: p.bank,
-                  account_number: p.number.padStart(12, "0"),
-                  ifsc_code: "BARC0001",
-                  nickname: p.name,
-                }).catch(() => null);
-              } else {
-                payeesApi.editPayee(editing, {
-                  nickname: p.name,
-                }).catch(() => null);
+              const nameValue = name.trim();
+              const bankValue = bank.trim();
+              if (!nameValue || !bankValue) return;
+              try {
+                if (editing === "new") {
+                  const created = await payeesApi.addPayee({
+                    name: nameValue,
+                    bank_name: bankValue,
+                    account_number: accountNumber,
+                    ifsc_code: ifscCode,
+                    nickname: nameValue,
+                  });
+                  setPayees((ps) => [...ps, {
+                    id: created.id,
+                    name: created.name,
+                    bank: created.bank_name,
+                    number: created.account_number.slice(-4),
+                  }]);
+                  setNotice("Payee added to your account.");
+                } else if (/^[0-9a-f-]{36}$/i.test(editing)) {
+                  const updated = await payeesApi.editPayee(editing, { name: nameValue, bank_name: bankValue, nickname: nameValue });
+                  setPayees((ps) => ps.map((x) => x.id === editing ? {
+                    id: updated.id,
+                    name: updated.name,
+                    bank: updated.bank_name,
+                    number: updated.account_number.slice(-4),
+                  } : x));
+                  setNotice("Payee updated.");
+                } else {
+                  throw new Error("Sample payees are view-only. Add a live payee to make account changes.");
+                }
+                setEditing(null);
+              } catch (err) {
+                setNotice(err instanceof Error ? err.message : "Payee changes could not be saved.");
               }
-              setPayees((ps) =>
-                editing === "new"
-                  ? [...ps, p]
-                  : ps.map((x) => (x.id === editing ? p : x)),
-              );
-              setEditing(null);
-              setNotice(
-                "Payee saved in this page preview. Verification is pending backend integration.",
-              );
             }}
           >
             <label>
@@ -1219,18 +1213,15 @@ function Payees() {
                 maxLength={60}
               />
             </label>
-            <label>
-              Account last four digits
-              <input
-                required
-                inputMode="numeric"
-                pattern="[0-9]{4}"
-                maxLength={4}
-                value={number}
-                onChange={(e) => setNumber(e.target.value)}
-              />
-            </label>
-            <button className="button">Save preview</button>
+            {editing === "new" ? (
+              <>
+                <label>Account number<input required inputMode="numeric" pattern="[0-9]{9,18}" minLength={9} maxLength={18} value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} /></label>
+                <label>IFSC code<input required pattern="[A-Za-z]{4}0[A-Za-z0-9]{6}" maxLength={11} value={ifscCode} onChange={(e) => setIfscCode(e.target.value.toUpperCase())} /></label>
+              </>
+            ) : (
+              <p className="field-help">Account details are protected and cannot be changed. Remove this payee and add it again to use different bank details.</p>
+            )}
+            <button className="button">Save payee</button>
           </form>
         </section>
       )}
@@ -1247,6 +1238,10 @@ function Statements() {
 
   const accountsQuery = useAccounts();
   const rawStmtAccs = accountsQuery.data?.items;
+  useEffect(() => {
+    const firstAccountId = rawStmtAccs?.[0]?.id;
+    if (firstAccountId && account === "savings") setAccount(firstAccountId);
+  }, [rawStmtAccs, account]);
   const accounts = rawStmtAccs && rawStmtAccs.length > 0
     ? rawStmtAccs.map((a: Account) => ({
         id: a.id,
@@ -1262,12 +1257,14 @@ function Statements() {
       : sampleTransactions;
 
   const valid = period !== "custom" || Boolean(from && to && from <= to);
-  const cutoff =
-    period === "1"
-      ? "2026-09-01"
-      : period === "3"
-        ? "2026-07-01"
-        : "2026-04-01";
+  const periodStart = new Date();
+  periodStart.setDate(1);
+  if (period === "3") periodStart.setMonth(periodStart.getMonth() - 2);
+  if (period === "6") periodStart.setMonth(periodStart.getMonth() - 5);
+  const cutoff = `${periodStart.getFullYear()}-${String(periodStart.getMonth() + 1).padStart(2, "0")}-01`;
+  const today = new Date();
+  const upperBound = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const currentMonthLabel = new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric" }).format(new Date());
 
   const data = transactions.filter((t) => {
     const acc = "account_id" in t ? t.account_id : (t as SampleTransaction).account;
@@ -1276,7 +1273,7 @@ function Statements() {
       acc === account &&
       (period === "custom"
         ? date >= from && date <= to
-        : date >= cutoff && date <= "2026-09-30")
+        : date >= cutoff && date <= upperBound)
     );
   });
 
@@ -1289,7 +1286,7 @@ function Statements() {
       <section className="panel no-print">
         <SectionTitle
           title="Build your statement"
-          description="Sample statements use September 2026 as the current month."
+          description={`Showing transactions through ${currentMonthLabel}.`}
         />
         <div className="filters">
           <label>
@@ -1317,7 +1314,7 @@ function Statements() {
                 setView(false);
               }}
             >
-              <option value="1">September 2026</option>
+              <option value="1">{currentMonthLabel}</option>
               <option value="3">Last 3 months</option>
               <option value="6">Last 6 months</option>
               <option value="custom">Custom date range</option>
@@ -1407,10 +1404,10 @@ function Scheduled() {
     },
   ]);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [editing, setEditing] = useState<string | null>(null);
+  const [scheduleMessage, setScheduleMessage] = useState("");
 
   useEffect(() => {
-    if (liveTransfers && liveTransfers.length > 0) {
+    if (liveTransfers) {
       setItems(liveTransfers.map((t) => ({
         id: t.id,
         name: t.reference_number || `Transfer to ${t.destination_account_id || "Account"}`,
@@ -1428,8 +1425,9 @@ function Scheduled() {
         description="Keep an eye on the payments coming up."
       />
       <p className="notice">
-        Illustrative schedules. Changes last only while this page is open.
+        {transfersQuery.data ? "Scheduled transfers saved to your account." : "Showing sample schedules. Sign in or reconnect to load saved transfers."}
       </p>
+      {scheduleMessage && <p className="form-error" role="alert">{scheduleMessage}</p>}
       <section className="panel">
         {items.length ? (
           items.map((item) => (
@@ -1446,56 +1444,28 @@ function Scheduled() {
               <strong>
                 <Money value={item.amount} />
               </strong>
-              <button
-                className="icon-button"
-                aria-label={`Edit ${item.name}`}
-                onClick={() => setEditing(editing === item.id ? null : item.id)}
-              >
-                <Pencil size={17} />
-              </button>
-              <button
+              {/^[0-9a-f-]{36}$/i.test(item.id) && <button
                 className="icon-button danger"
                 aria-label={`Cancel ${item.name}`}
                 onClick={() => setConfirm(item.id)}
               >
                 <X size={18} />
-              </button>
-              {editing === item.id && (
-                <label className="schedule-edit">
-                  Next payment date
-                  <input
-                    type="date"
-                    aria-label={`New date for ${item.name}`}
-                    value={item.date}
-                    min={new Date().toLocaleDateString("en-CA")}
-                    onChange={(e) => {
-                      if (e.target.value)
-                        setItems((xs) =>
-                          xs.map((x) =>
-                            x.id === item.id
-                              ? { ...x, date: e.target.value }
-                              : x,
-                          ),
-                        );
-                    }}
-                  />
-                  <button
-                    className="text-link"
-                    onClick={() => setEditing(null)}
-                  >
-                    Done
-                  </button>
-                </label>
-              )}
+              </button>}
               {confirm === item.id && (
                 <div className="schedule-edit notice">
-                  Cancel this sample schedule?
+                  Cancel this scheduled transfer?
                   <button
                     className="text-link danger"
-                    onClick={() => {
-                      cancelATransfer(item.id).catch(() => null);
-                      setItems((xs) => xs.filter((x) => x.id !== item.id));
-                      setConfirm(null);
+                    onClick={async () => {
+                      try {
+                        await cancelATransfer(item.id);
+                        setItems((xs) => xs.filter((x) => x.id !== item.id));
+                        setScheduleMessage("Scheduled transfer cancelled and saved.");
+                      } catch (err) {
+                        setScheduleMessage(err instanceof Error ? err.message : "The transfer could not be cancelled.");
+                      } finally {
+                        setConfirm(null);
+                      }
                     }}
                   >
                     Yes, cancel
@@ -1527,9 +1497,21 @@ function Loans() {
   const [rate, setRate] = useState(10.5);
   const [months, setMonths] = useState(60);
   const [detail, setDetail] = useState<string | null>(null);
+  const [applicationMessage, setApplicationMessage] = useState("");
 
   const loanProductsQuery = useLoanProducts();
   const loanAppsQuery = useLoanApplications();
+  const loanProducts = loanProductsQuery.data?.length
+    ? loanProductsQuery.data.map((product) => ({
+        id: product.id,
+        name: product.name,
+        description: product.description || `${product.interest_rate}% annual interest · ${product.min_tenure_months}–${product.max_tenure_months} month terms.`,
+      }))
+    : ["Personal loan", "Home loan", "Education loan", "Vehicle loan"].map((name, i) => ({
+        id: undefined,
+        name,
+        description: ["For the plans that matter to you.", "A place to make your own.", "A brighter start to tomorrow.", "Take the next turn in your journey."][i],
+      }));
 
   const r = rate / 1200;
   const emi =
@@ -1544,24 +1526,15 @@ function Loans() {
         description="Explore possibilities, and understand what they could look like."
       />
       <div className="loan-grid">
-        {["Personal loan", "Home loan", "Education loan", "Vehicle loan"].map(
-          (name, i) => (
-            <section className="panel product-card" key={name}>
+        {loanProducts.map(
+          (product) => (
+            <section className="panel product-card" key={product.name}>
               <span className="icon-tile lavender">
                 <Landmark />
               </span>
-              <h3>{name}</h3>
-              <p className="muted">
-                {
-                  [
-                    "For the plans that matter to you.",
-                    "A place to make your own.",
-                    "A brighter start to tomorrow.",
-                    "Take the next turn in your journey.",
-                  ][i]
-                }
-              </p>
-              <button className="text-link" onClick={() => setDetail(name)}>
+              <h3>{product.name}</h3>
+              <p className="muted">{product.description}</p>
+              <button className="text-link" onClick={() => setDetail(product.name)}>
                 Explore details <ArrowUpRight size={16} />
               </button>
             </section>
@@ -1582,12 +1555,33 @@ function Loans() {
               </button>
             }
           />
-          <p className="muted">
-            Compare your budget using the calculator below. Rates shown are
-            illustrative; actual rates, eligibility and approval depend on bank
-            assessment. Applications and eligibility checks are planned for the
-            next implementation phase.
-          </p>
+          {(() => {
+            const selectedProduct = loanProductsQuery.data?.find((product) => product.name === detail);
+            if (!selectedProduct) return <p className="muted">This is sample product content; a live product is required to submit an application.</p>;
+            return <form onSubmit={async (event) => {
+              event.preventDefault();
+              setApplicationMessage("");
+              try {
+                const application = await submitLoanApplication({ loan_product_id: selectedProduct.id, requested_amount: amount, tenure_months: months });
+                await loanAppsQuery.refresh();
+                setApplicationMessage(`Application ${application.id} saved with status ${application.status}.`);
+              } catch (err) {
+                setApplicationMessage(err instanceof Error ? err.message : "Loan application could not be saved.");
+              }
+            }}>
+              <p className="muted">Apply for {selectedProduct.name}. Amount range: <Money value={Number(selectedProduct.min_amount)} />–<Money value={Number(selectedProduct.max_amount)} />. The API will assess eligibility before saving.</p>
+              <label>Requested amount<input type="number" min={Number(selectedProduct.min_amount)} max={Number(selectedProduct.max_amount)} step="1000" value={amount} onChange={(e) => setAmount(Number(e.target.value))} required /></label>
+              <label>Tenure in months<input type="number" min={selectedProduct.min_tenure_months} max={selectedProduct.max_tenure_months} step="1" value={months} onChange={(e) => setMonths(Number(e.target.value))} required /></label>
+              <button className="button">Submit application</button>
+              {applicationMessage && <p className="notice" role="status">{applicationMessage}</p>}
+            </form>;
+          })()}
+        </section>
+      )}
+      {loanAppsQuery.data && loanAppsQuery.data.length > 0 && (
+        <section className="panel">
+          <SectionTitle title="Your loan applications" />
+          {loanAppsQuery.data.map((application) => <p key={application.id}>{application.status} · <Money value={Number(application.requested_amount)} /> · {new Date(application.application_date).toLocaleDateString("en-IN")}</p>)}
         </section>
       )}
       <div className="dashboard-columns">
@@ -1684,11 +1678,32 @@ function Loans() {
 function Wealth() {
   const [compare, setCompare] = useState<string[]>([]);
   const [detail, setDetail] = useState<string | null>(null);
+  const [purchaseProduct, setPurchaseProduct] = useState<string | null>(null);
+  const [purchaseAmount, setPurchaseAmount] = useState("");
+  const [purchaseAccount, setPurchaseAccount] = useState("");
+  const [purchaseMessage, setPurchaseMessage] = useState("");
 
   const invQuery = useInvestmentProducts();
   const holdingsQuery = useHoldings();
+  const accountsQuery = useAccounts();
+  useEffect(() => {
+    if (!purchaseAccount && accountsQuery.data?.items[0]) setPurchaseAccount(accountsQuery.data.items[0].id);
+  }, [accountsQuery.data, purchaseAccount]);
 
-  const products = sampleProducts;
+  const products = invQuery.data?.length
+    ? invQuery.data.map((product) => ({
+        id: product.id,
+        name: product.name,
+        category: product.product_type.replaceAll("_", " "),
+        risk: product.risk_level,
+        description: product.description || "Explore the product details and terms.",
+        minimum: Number(product.minimum_investment),
+      }))
+    : sampleProducts.map((product) => ({ ...product, id: product.name }));
+  const holdingsTotal = (holdingsQuery.data ?? []).reduce(
+    (total, holding) => total + Number(holding.current_value ?? holding.amount_invested),
+    0,
+  );
 
   return (
     <>
@@ -1697,9 +1712,15 @@ function Wealth() {
         description="Explore ways to save, invest and protect what matters."
       />
       <p className="notice">
-        Illustrative product categories, not offers or investment advice. No
-        purchases or applications are available.
+        Product information is supplied by the API when available. Review terms and risks before investing.
       </p>
+      {purchaseMessage && <p className="notice" role="status">{purchaseMessage}</p>}
+      {holdingsQuery.data && holdingsQuery.data.length > 0 && (
+        <section className="panel">
+          <SectionTitle title="Your current holdings" description={`${holdingsQuery.data.length} active investment${holdingsQuery.data.length === 1 ? "" : "s"}`} />
+          <h2><Money value={holdingsTotal} /></h2>
+        </section>
+      )}
       <div className="loan-grid">
         {products.map((p) => (
           <section className="panel product-card" key={p.name}>
@@ -1713,6 +1734,11 @@ function Wealth() {
             <button className="text-link" onClick={() => setDetail(p.name)}>
               View details <ArrowUpRight size={16} />
             </button>
+            {invQuery.data?.some((live) => live.id === p.id) && (
+              <button className="button secondary small" onClick={() => { setPurchaseProduct(p.id); setPurchaseAmount(String(p.minimum)); setPurchaseMessage(""); }}>
+                Invest
+              </button>
+            )}
             <label className="checkbox-label">
               <input
                 type="checkbox"
@@ -1731,6 +1757,29 @@ function Wealth() {
           </section>
         ))}
       </div>
+      {purchaseProduct && (
+        <section className="panel form-panel">
+          <SectionTitle title={`Invest in ${products.find((p) => p.id === purchaseProduct)?.name ?? "product"}`} />
+          <form onSubmit={async (event) => {
+            event.preventDefault();
+            setPurchaseMessage("");
+            try {
+              if (!purchaseAccount) throw new Error("No live account is available to fund this investment.");
+              await buyInvestment({ investment_product_id: purchaseProduct, amount_invested: Number(purchaseAmount), source_account_id: purchaseAccount });
+              await holdingsQuery.refresh();
+              await accountsQuery.refresh();
+              setPurchaseProduct(null);
+              setPurchaseMessage("Investment saved. Your account was debited and the holding is recorded.");
+            } catch (err) {
+              setPurchaseMessage(err instanceof Error ? err.message : "Investment could not be saved.");
+            }
+          }}>
+            <label>Funding account<select required value={purchaseAccount} onChange={(e) => setPurchaseAccount(e.target.value)}>{accountsQuery.data?.items.map((account) => <option key={account.id} value={account.id}>{account.account_type} ····{account.account_number.slice(-4)}</option>)}</select></label>
+            <label>Amount<input required type="number" min={products.find((p) => p.id === purchaseProduct)?.minimum ?? 1} step="0.01" value={purchaseAmount} onChange={(e) => setPurchaseAmount(e.target.value)} /></label>
+            <button className="button">Confirm investment</button>
+          </form>
+        </section>
+      )}
       {detail && (
         <section className="panel">
           <SectionTitle
@@ -1748,8 +1797,7 @@ function Wealth() {
           <p className="muted">
             {products.find((p) => p.name === detail)?.description} Product
             documentation, fees, provider terms and suitability must be reviewed
-            before investing. Live details and investment journeys are pending
-            integration.
+            before investing. The Invest action records the purchase in your account and deducts the amount from the selected funding account.
           </p>
         </section>
       )}
@@ -1803,6 +1851,10 @@ function Wealth() {
 
 function Analytics() {
   const summaryQuery = useCustomerSummary();
+  const monthLabel = new Intl.DateTimeFormat("en-IN", { month: "long" }).format(new Date());
+  const monthlyIncome = Number(summaryQuery.data?.month_to_date_credits ?? 83000);
+  const monthlySpending = Number(summaryQuery.data?.month_to_date_debits ?? 34200);
+  const monthlySurplus = Math.max(0, monthlyIncome - monthlySpending);
 
   return (
     <>
@@ -1813,19 +1865,19 @@ function Analytics() {
       <div className="overview-grid analytics-stats">
         {[
           {
-            label: "September income",
-            value: 83000,
-            note: "Illustrative aggregate",
+            label: `${monthLabel} income`,
+            value: monthlyIncome,
+            note: summaryQuery.data ? "From your account activity" : "Illustrative aggregate",
           },
           {
-            label: "September spending",
-            value: 34200,
-            note: "12% less than August",
+            label: `${monthLabel} spending`,
+            value: monthlySpending,
+            note: summaryQuery.data ? "From your account activity" : "12% less than last month",
           },
           {
             label: "Set aside this month",
-            value: 48800,
-            note: "58.8% of sample income",
+            value: monthlySurplus,
+            note: summaryQuery.data ? "Credits less debits this month" : "58.8% of sample income",
           },
         ].map((s) => (
           <div className="panel" key={s.label}>
@@ -1932,11 +1984,18 @@ function Recommendations() {
         description="Ideas for your next step, all in one place."
       />
       <p className="notice">
-        These are static examples, not recommendations generated from your
-        personal information.
+        {recsQuery.data?.length
+          ? "Recommendations based on your customer profile. Review product details before deciding."
+          : "These examples are shown while personalized recommendations are unavailable."}
       </p>
       <div className="recommendations-grid">
-        {[
+        {(recsQuery.data?.length ? recsQuery.data.map((recommendation) => ({
+          title: recommendation.recommendation_type.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+          tag: recommendation.product_type.replaceAll("_", " ").toUpperCase(),
+          text: recommendation.reason || "Review this option and its terms before deciding.",
+          href: recommendation.product_type.toLowerCase().includes("loan") ? "loans" : "wealth",
+          icon: recommendation.product_type.toLowerCase().includes("loan") ? Landmark : TrendingUp,
+        })) : [
           {
             title: "Give your savings a purpose.",
             tag: "SAVE FOR TOMORROW",
@@ -1965,7 +2024,7 @@ function Recommendations() {
             href: "wealth",
             icon: ShieldCheck,
           },
-        ].map((r) => (
+        ]).map((r) => (
           <section className="panel product-card" key={r.title}>
             <span className="icon-tile lavender">
               <r.icon />
@@ -2075,9 +2134,15 @@ function Notifications() {
 function Settings() {
   const profileQuery = useCustomerProfile();
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const [name, setName] = useState("Akhil Doshi");
   const [email, setEmail] = useState("akhil@example.com");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [city, setCity] = useState("");
+  const [stateName, setStateName] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [occupation, setOccupation] = useState("");
   const [preferences, setPreferences] = useState([true, true, false]);
 
   useEffect(() => {
@@ -2085,17 +2150,33 @@ function Settings() {
       setName(`${profileQuery.data.first_name} ${profileQuery.data.last_name}`);
       setEmail(profileQuery.data.email);
       if (profileQuery.data.phone) setPhone(profileQuery.data.phone);
+      setAddress(profileQuery.data.address ?? "");
+      setCity(profileQuery.data.city ?? "");
+      setStateName(profileQuery.data.state ?? "");
+      setPostalCode(profileQuery.data.postal_code ?? "");
+      setOccupation(profileQuery.data.occupation ?? "");
     }
   }, [profileQuery.data]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    setSaved(false);
+    setSaveError("");
     try {
-      await saveProfile({ phone: phone || undefined }).catch(() => null);
-    } catch {
-      /* demo offline */
+      if (!profileQuery.data) throw new Error("Live profile data is unavailable. Sign in and reload before saving.");
+      await saveProfile({
+        phone: phone || null,
+        address: address || null,
+        city: city || null,
+        state: stateName || null,
+        postal_code: postalCode || null,
+        occupation: occupation || null,
+      });
+      await profileQuery.refresh();
+      setSaved(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Profile changes could not be saved.");
     }
-    setSaved(true);
   }
 
   return (
@@ -2108,7 +2189,7 @@ function Settings() {
         <section className="panel form-panel">
           <SectionTitle
             title="Your personal details"
-            description="Changes are held only while this page is open."
+            description="Phone, address and occupation changes are saved to your customer profile. Name and email are managed separately."
           />
           <form onSubmit={handleSave}>
             <label>
@@ -2116,10 +2197,7 @@ function Settings() {
               <input
                 required
                 value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setSaved(false);
-                }}
+                readOnly
               />
             </label>
             <label>
@@ -2128,10 +2206,7 @@ function Settings() {
                 required
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setSaved(false);
-                }}
+                readOnly
               />
             </label>
             <label>
@@ -2147,12 +2222,25 @@ function Settings() {
                 }}
               />
             </label>
+            <label>
+              Address
+              <input value={address} maxLength={500} onChange={(e) => { setAddress(e.target.value); setSaved(false); }} />
+            </label>
+            <div className="form-two">
+              <label>City<input value={city} maxLength={100} onChange={(e) => { setCity(e.target.value); setSaved(false); }} /></label>
+              <label>State<input value={stateName} maxLength={100} onChange={(e) => { setStateName(e.target.value); setSaved(false); }} /></label>
+            </div>
+            <div className="form-two">
+              <label>Postal code<input value={postalCode} maxLength={20} onChange={(e) => { setPostalCode(e.target.value); setSaved(false); }} /></label>
+              <label>Occupation<input value={occupation} maxLength={150} onChange={(e) => { setOccupation(e.target.value); setSaved(false); }} /></label>
+            </div>
             <button className="button">
-              Save preview <Check size={16} />
+              Save profile <Check size={16} />
             </button>
+            {saveError && <p className="form-error" role="alert">{saveError}</p>}
             {saved && (
               <p className="notice" role="status">
-                Profile preview updated. No account information was changed.
+                Profile changes saved.
               </p>
             )}
           </form>

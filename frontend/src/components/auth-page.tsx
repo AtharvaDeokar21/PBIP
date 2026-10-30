@@ -51,10 +51,6 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         storeToken(res.access_token);
         router.push("/admin/dashboard");
       } catch {
-        if (email === "admin@example.com") {
-          router.push("/admin/dashboard");
-          return;
-        }
         setMessage("Invalid email or password. Please try again.");
       } finally {
         setLoading(false);
@@ -83,10 +79,6 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         storeCustomerToken(res.access_token);
         router.push("/portal/dashboard");
       } catch (err) {
-        if (email === "sample@example.com") {
-          router.push("/portal/dashboard");
-          return;
-        }
         setMessage(
           err instanceof Error
             ? err.message

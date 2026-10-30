@@ -22,6 +22,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Brand } from "./ui";
+import { clearCustomerToken } from "@/lib/customer/api";
 import AIChat, { AIChatToggle } from "./ai-chat";
 
 const navigation = [
@@ -91,6 +92,7 @@ export default function PortalShell({
           <Link
             href="/login"
             onClick={() => {
+              clearCustomerToken();
               sessionStorage.removeItem("credora-sample-name");
             }}
           >

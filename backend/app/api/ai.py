@@ -2,12 +2,14 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_customer
+from app.core.config import settings
 from app.models.ai import AIConversation, AIMessage
 from app.models.banking import Account, Transaction
 from app.models.identity import Customer
@@ -185,6 +187,32 @@ async def chat(
             f"• Wealth & investments (`Show my investments`)\n\n"
             f"What would you like to explore today?"
         )
+        # Keyword routed banking questions above always use live domain data.
+        # Groq is only a fallback for general questions with no matched intent.
+        if settings.groq_api_key:
+            try:
+                async with httpx.AsyncClient(timeout=12.0) as client:
+                    groq_response = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+                        json={
+                            "model": settings.groq_model,
+                            "messages": [
+                                {"role": "system", "content": "You are Credora AI, a helpful banking assistant. Do not claim to access the customer's account or give personalized financial, legal, or investment advice. For account-specific requests, ask them to use the banking dashboard."},
+                                {"role": "user", "content": user_msg_text},
+                            ],
+                            "temperature": 0.4,
+                            "max_tokens": 350,
+                        },
+                    )
+                    groq_response.raise_for_status()
+                    result = groq_response.json()
+                    generated = result["choices"][0]["message"]["content"]
+                    if isinstance(generated, str) and generated.strip():
+                        response_text = generated.strip()
+            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError):
+                # Preserve the useful local keyword/help response when Groq is unavailable.
+                pass
 
     # 4. Record assistant message
     asst_msg = AIMessage(

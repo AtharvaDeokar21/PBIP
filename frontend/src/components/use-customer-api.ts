@@ -116,9 +116,13 @@ export function useTransactions(
   const [rev, setRev] = useState(0);
 
   useEffect(() => {
-    if (!accountId) {
+    // Sample account keys (for example "savings") are not backend UUIDs.
+    // Keep the page's existing sample data in use instead of issuing a request
+    // that the UUID route can only reject with 422.
+    if (!accountId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(accountId)) {
       setData(null);
       setLoading(false);
+      setError("");
       return;
     }
     let alive = true;
