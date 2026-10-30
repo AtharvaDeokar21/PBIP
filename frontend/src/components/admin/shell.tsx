@@ -19,6 +19,7 @@ import {
   Scale,
 } from "lucide-react";
 import { Brand } from "@/components/ui";
+import { clearToken } from "@/lib/admin/api";
 const links = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/customers", label: "Customers", icon: Users },
@@ -116,7 +117,7 @@ export default function AdminShell({
               <small>Banking administrator</small>
             </div>
           </div>
-          <Link href="/admin/login">
+          <Link href="/admin/login" onClick={() => clearToken()}>
             <LogOut size={17} /> Exit workspace
           </Link>
         </div>

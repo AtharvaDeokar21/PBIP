@@ -1,12 +1,14 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "PBIP API"
     app_env: str = "development"
-    debug: bool = True
+    # Ignore generic DEBUG variables exported by developer tooling.
+    debug: bool = Field(default=True, validation_alias="APP_DEBUG")
     api_v1_prefix: str = "/api/v1"
 
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"

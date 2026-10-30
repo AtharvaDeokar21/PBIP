@@ -71,12 +71,12 @@ export interface CustomerProfile {
 }
 
 export interface CustomerUpdate {
-  phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  postal_code?: string;
-  occupation?: string;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  occupation?: string | null;
 }
 
 export interface CustomerSummary {
