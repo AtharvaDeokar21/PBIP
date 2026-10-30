@@ -82,12 +82,16 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
         }
         storeCustomerToken(res.access_token);
         router.push("/portal/dashboard");
-      } catch {
+      } catch (err) {
         if (email === "sample@example.com") {
           router.push("/portal/dashboard");
           return;
         }
-        setMessage("Invalid email or password. Please try again.");
+        setMessage(
+          err instanceof Error
+            ? err.message
+            : "Invalid email or password. Please try again.",
+        );
       } finally {
         setLoading(false);
       }
@@ -111,17 +115,22 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
       setLoading(true);
       setMessage("");
       try {
-        const res = await customerRegister(
+        await customerRegister(
           email,
           password,
           firstName,
           lastName,
         );
-        storeCustomerToken(res.access_token);
+        // Backend /auth/register creates user & customer, but does not return JWT.
+        // Immediately log in to obtain access_token for portal session.
+        const loginRes = await customerLogin(email, password);
+        storeCustomerToken(loginRes.access_token);
         router.push("/portal/dashboard");
-      } catch {
+      } catch (err) {
         setMessage(
-          "Sign-up is not connected yet. Your details have not been sent and no account has been created.",
+          err instanceof Error
+            ? err.message
+            : "Registration failed. Please check your details and try again.",
         );
       } finally {
         setLoading(false);
@@ -240,7 +249,7 @@ export default function AuthPage({ mode }: { mode: AuthMode }) {
               Back to sign in <ArrowRight size={16} />
             </Link>
           ) : (
-            <form onSubmit={submit} onChange={() => setMessage("")}>
+            <form method="post" onSubmit={submit} onChange={() => setMessage("")}>
               {isRegister && (
                 <div className="form-two">
                   <label>
