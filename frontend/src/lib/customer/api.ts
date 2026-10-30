@@ -330,12 +330,19 @@ export async function customerLogin(
   });
 }
 
+export interface RegisterResponse {
+  user_id: string;
+  customer_id: string;
+  email: string;
+  role: string;
+}
+
 export async function customerRegister(
   email: string,
   password: string,
   first_name: string,
   last_name: string,
-): Promise<AuthResponse> {
+): Promise<RegisterResponse> {
   return apiFetch("/auth/register", {
     method: "POST",
     body: JSON.stringify({ email, password, first_name, last_name }),
