@@ -1,10 +1,131 @@
+name: credora
+
+# Credora microservices stack.
+#
+#   docker compose up --build -d                   # gateway, frontend, services + observability
+#   docker compose --profile seed run --rm seed    # migrate + seed demo data + synthetic data
+#   docker compose --profile setup run --rm migrate
+#
+# Open the app at http://localhost:8080 (everything goes through the gateway).
+# Database: the Supabase PostgreSQL from DATABASE_URL in the root .env file.
+# Observability (Prometheus, Loki, Alloy, Grafana) is always started; see
+# observability/compose.yml. Jenkins runs this file with docker-compose.ci.yml.
+
+include:
+  - path: ./observability/compose.yml
+    project_directory: .
+
+x-backend: &backend
+  build: ./backend
+  image: credora-backend:${IMAGE_TAG:-dev}
+  env_file:
+    - path: ./.env
+      required: true
+  volumes:
+    - ./backend:/app
+  # Uncomment together with the `postgres` service below to use a local DB.
+  # depends_on:
+  #   postgres:
+  #     condition: service_healthy
+
+x-backend-healthcheck: &backend-healthcheck
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=3)"]
+  interval: 10s
+  timeout: 5s
+  retries: 6
+  start_period: 15s
+
 services:
-  backend:
-    build: ./backend
-    env_file:
-      - ./backend/.env
+  gateway:
+    build: ./gateway
+    image: credora-gateway:${IMAGE_TAG:-dev}
     ports:
-      - "8000:8000"
-    volumes:
-      - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - "8080:80"
+    depends_on:
+      - customer-service
+      - admin-service
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080/api/v1
+    image: credora-frontend:${IMAGE_TAG:-dev}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/login').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    restart: unless-stopped
+
+  customer-service:
+    <<: *backend
+    command: >-
+      uvicorn app.customer_main:app --host 0.0.0.0 --port 8000 --reload
+      --proxy-headers --forwarded-allow-ips=* --no-access-log
+    environment:
+      SERVICE_NAME: customer-service
+    ports:
+      - "8001:8000"
+    healthcheck: *backend-healthcheck
+    restart: unless-stopped
+
+  admin-service:
+    <<: *backend
+    command: >-
+      uvicorn app.admin_main:app --host 0.0.0.0 --port 8000 --reload
+      --proxy-headers --forwarded-allow-ips=* --no-access-log
+    environment:
+      SERVICE_NAME: admin-service
+    ports:
+      - "8002:8000"
+    healthcheck: *backend-healthcheck
+    restart: unless-stopped
+
+  # One-shot jobs -----------------------------------------------------------
+
+  migrate:
+    <<: *backend
+    profiles: ["setup"]
+    command: alembic upgrade heads
+
+  seed:
+    <<: *backend
+    profiles: ["seed"]
+    command: >-
+      sh -c "alembic upgrade heads
+      && python -m scripts.seed
+      && python -m data.generators.generate"
+
+  # Optional local Postgres (disabled — the stack uses Supabase) ------------
+  # To use it: uncomment this service, the depends_on block in x-backend and
+  # the volumes section at the bottom, then set in .env:
+  #   DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/credora
+  #
+  # postgres:
+  #   image: postgres:16-alpine
+  #   profiles: ["local-db"]
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: credora
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - credora-pgdata:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U postgres -d credora"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
+
+# volumes:
+#   credora-pgdata:

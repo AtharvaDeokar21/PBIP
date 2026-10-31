@@ -1,3 +1,4 @@
+import secrets
 from functools import lru_cache
 
 from pydantic import Field
@@ -11,9 +12,12 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, validation_alias="APP_DEBUG")
     api_v1_prefix: str = "/api/v1"
 
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres"
+    # Credentials are never hard-coded: set DATABASE_URL and JWT_SECRET_KEY in .env.
+    database_url: str = "postgresql+asyncpg://localhost:5432/postgres"
 
-    jwt_secret_key: str = "dev-only-change-me"
+    # Without JWT_SECRET_KEY a random per-process secret is used, so tokens are
+    # only valid for that process; every deployment must set the variable.
+    jwt_secret_key: str = Field(default_factory=lambda: secrets.token_urlsafe(32))
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 

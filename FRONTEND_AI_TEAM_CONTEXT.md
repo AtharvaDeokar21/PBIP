@@ -103,9 +103,9 @@ Supabase tables directly
 
 ## 4. Backend API Base URL
 
-Development:
+Development (API gateway):
 
-`http://localhost:8000/api/v1`
+`http://localhost:8080/api/v1`
 
 Production URL should be configurable through environment variables.
 

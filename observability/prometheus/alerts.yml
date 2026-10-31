@@ -1,0 +1,42 @@
+groups:
+  - name: credora-services
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"customer-service|admin-service|gateway"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.job }} is down"
+          description: "Prometheus cannot scrape {{ $labels.job }} ({{ $labels.instance }}) for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: |
+          sum by (job) (rate(http_requests_total{status=~"5.."}[5m]))
+            / sum by (job) (rate(http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 5xx ratio above 5%"
+          description: "More than 5% of requests to {{ $labels.job }} failed with a server error over the last 5 minutes."
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, sum by (job, le) (rate(http_request_duration_seconds_bucket[5m]))) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} p95 latency above 1s"
+          description: "95th percentile latency of {{ $labels.job }} has been above 1 second for 5 minutes."
+
+  - name: credora-ci
+    rules:
+      - alert: JenkinsBuildFailed
+        expr: default_jenkins_builds_last_build_result_ordinal{jenkins_job="credora"} >= 2
+        labels:
+          severity: warning
+        annotations:
+          summary: "Last Credora pipeline build failed"
+          description: "The most recent run of the credora Jenkins pipeline did not succeed."

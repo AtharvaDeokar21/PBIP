@@ -4,11 +4,11 @@ Reference documentation for the customer-facing banking APIs owned by the **Cust
 
 | | |
 |---|---|
-| **Base URL** | `http://<host>:8000/api/v1` |
+| **Base URL** | `http://<host>:8080/api/v1` (API gateway) |
 | **Format** | JSON over HTTPS, UTF-8 |
 | **Auth** | Bearer JWT (`Authorization: Bearer <token>`) |
-| **Interactive docs** | Swagger UI at `/docs`, OpenAPI JSON at `/openapi.json` |
-| **Architecture** | Modular monolith: Router → Pydantic schema → Service → SQLAlchemy → PostgreSQL |
+| **Interactive docs** | customer-service Swagger UI at `http://<host>:8001/docs`, OpenAPI JSON at `/openapi.json` |
+| **Architecture** | Served by customer-service behind the nginx API gateway: Router → Pydantic schema → Service → SQLAlchemy → PostgreSQL |
 
 ## Contents
 

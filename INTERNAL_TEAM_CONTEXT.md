@@ -35,7 +35,7 @@ The internal portal is intended for:
 - Relationship managers
 - Administrators
 
-The architecture is a modular monolith.
+The platform uses a microservices architecture: frontend, customer-service and admin-service behind an nginx API gateway, sharing one codebase and one database. See `docs/architecture/MICROSERVICES_MIGRATION_PLAN.md`.
 
 Backend:
 
@@ -56,7 +56,7 @@ Architecture:
        ↓
     PostgreSQL
 
-Do not create separate microservices.
+Internal APIs are served by admin-service; register new internal routers in `app/admin_main.py` and add any new path prefix to the admin location in `gateway/nginx.conf`.
 
 ---
 

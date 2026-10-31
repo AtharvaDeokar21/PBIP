@@ -45,13 +45,13 @@ The overall system combines:
 6. AI-assisted banking interactions
 7. Internal banking operations
 
-The architecture is a modular monolith.
+The platform uses a microservices architecture: frontend, customer-service and admin-service behind an nginx API gateway, sharing one codebase and one database. See `docs/architecture/MICROSERVICES_MIGRATION_PLAN.md`.
 
 The backend follows:
 
 Router → Pydantic Schema → Service → SQLAlchemy → PostgreSQL
 
-Do NOT introduce microservices for individual banking features.
+Customer APIs are served by customer-service; register new customer routers in `app/customer_main.py`.
 
 ---
 
@@ -829,7 +829,6 @@ Do NOT implement unless explicitly requested:
 - Production-grade payment settlement
 - Actual stock exchange integration
 - Actual insurance underwriting
-- Microservices
 - Event-driven Kafka infrastructure
 - Complex distributed transaction systems
 

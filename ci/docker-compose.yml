@@ -1,0 +1,93 @@
+name: credora-ci
+
+# Credora CI stack: Jenkins + SonarQube, fully provisioned on start.
+#
+#   docker compose -f ci/docker-compose.yml up -d --build
+#
+# Reads the repository-root .env (application secrets and the optional
+# JENKINS_ADMIN_*, SONAR_ADMIN_PASSWORD keys; see .env.example).
+#
+#   Jenkins    http://localhost:8081   (pipeline job "credora", branch feature/cicd)
+#   SonarQube  http://localhost:9000   (project "credora")
+
+services:
+  sonarqube:
+    image: sonarqube:25.8.0.112029-community
+    environment:
+      # Elasticsearch bootstrap checks require host kernel tuning that Docker
+      # Desktop does not expose; safe to disable for a single local node.
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+      SONAR_TELEMETRY_ENABLE: "false"
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9000/api/system/status | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+
+  sonar-init:
+    build: ./sonar-init
+    image: credora-sonar-init:dev
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      SONAR_URL: http://sonarqube:9000
+      JENKINS_WEBHOOK_URL: http://jenkins:8080/sonarqube-webhook/
+      TOKEN_FILE: /secrets/token
+    volumes:
+      - sonar-secrets:/secrets
+    depends_on:
+      sonarqube:
+        condition: service_healthy
+
+  jenkins:
+    build: ./jenkins
+    image: credora-jenkins:dev
+    # Root inside the container so the pipeline can use the host Docker socket.
+    user: root
+    env_file:
+      - path: ../.env
+        required: true
+    environment:
+      # The application .env sets DEBUG=true; Jenkins' start script would then
+      # suspend the JVM waiting for a remote debugger.
+      DEBUG: ""
+    ports:
+      - "8081:8080"
+    volumes:
+      - jenkins-home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../.env:/run/secrets/credora.env:ro
+      - sonar-secrets:/run/secrets/sonar:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      sonar-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://127.0.0.1:8080/login >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
+
+networks:
+  default:
+    # Fixed name so pipeline containers (SonarQube scanner) can join it.
+    name: credora-ci
+
+volumes:
+  jenkins-home:
+  sonar-secrets:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:
