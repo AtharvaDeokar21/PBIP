@@ -12,6 +12,43 @@ Industry-aligned final-year software engineering capstone project.
 - Dockerized backend
 - OpenAPI/Swagger documentation
 
+## Architecture (microservices)
+
+The app runs as separate containers behind an nginx API gateway. Both backend services run the same `backend/app` code and share one PostgreSQL database (`public` schema), so every API behaves exactly as it did in the monolith.
+
+| Container | What it serves | Host port |
+| --- | --- | --- |
+| `gateway` (nginx) | Single entry point — open the app here | `8080` |
+| `frontend` | Next.js UI (`/`, `/portal/*`, `/admin/*`) | via gateway |
+| `customer-service` | `app.customer_main` — auth (shared login), `/me`, customers, accounts, transactions, payees, transfers, bills, loans, investments, insurance, recommendations, AI | `8001` (Swagger `/docs`) |
+| `admin-service` | `app.admin_main` — `/analytics/*`, `/fraud/*`, `/compliance/*` | `8002` (Swagger `/docs`) |
+
+Gateway routing (`gateway/nginx.conf`): `/api/v1/analytics|fraud|compliance/*` → admin-service, every other `/api/v1/*` → customer-service, everything else → frontend. Login for both portals stays `POST /api/v1/auth/login`. `backend/tests/test_service_split.py` checks that the two services together expose exactly the monolith's routes and that the gateway sends each route to the right service.
+
+Full plan and API inventory: [docs/architecture/MICROSERVICES_MIGRATION_PLAN.md](docs/architecture/MICROSERVICES_MIGRATION_PLAN.md).
+
+### Run with Docker
+
+```powershell
+copy backend\.env.example .env   # repo-root .env: Supabase DATABASE_URL, JWT_SECRET_KEY, GROQ_API_KEY
+docker compose up --build -d
+```
+
+Open `http://localhost:8080`.
+
+All backend containers use the Supabase database from `DATABASE_URL` in the repo-root `.env` (Docker reads it via `env_file`; skip the copy step if it already exists). A local Postgres service is included in `docker-compose.yml` but commented out; the comments there explain how to switch to it.
+
+### Seed data
+
+```powershell
+docker compose --profile seed run --rm seed
+```
+
+This runs `alembic upgrade head`, then `python -m scripts.seed` (demo users for every role, password `PBIP@Demo123`, plus products and billers), then `python -m data.generators.generate` (synthetic customers, transactions, behaviour, fraud, risk profiles). It is safe to re-run (existing demo/synthetic data is detected and skipped). It writes to the shared Supabase database, so everyone on the team sees the data.
+
+Migrations only: `docker compose --profile setup run --rm migrate`.
+Old single backend (fallback): `docker compose --profile monolith up backend` → `http://localhost:8000`.
+
 ## Backend setup
 
 ```powershell
