@@ -17,3 +17,7 @@ ruff check app scripts --output-format=json --exit-zero --output-file reports/ru
 pytest -q -p no:cacheprovider \
   --junitxml=reports/junit.xml \
   --cov --cov-report=term --cov-report=xml:reports/coverage.xml
+
+# pytest runs inside backend/, so test classnames are "tests.api.test_x".
+# SonarQube resolves them from the repository root: make them "backend.tests.api.test_x".
+sed -i 's/classname="tests\./classname="backend.tests./g' reports/junit.xml
