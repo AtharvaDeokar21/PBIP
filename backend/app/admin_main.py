@@ -33,6 +33,7 @@ ADMIN_ROUTERS = [
 
 app = create_service_app(
     service_name="Admin Service",
+    service_id="admin-service",
     description="Credora internal analytics, fraud and compliance APIs",
     routers=ADMIN_ROUTERS,
 )

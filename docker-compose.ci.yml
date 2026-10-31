@@ -1,0 +1,25 @@
+# Override used by the Jenkins pipeline:
+#   docker compose -f docker-compose.yml -f docker-compose.ci.yml ...
+#
+# Jenkins drives the host Docker engine from inside its container, so source
+# bind mounts (./backend) would point at paths that do not exist on the host.
+# Containers run from the built images only, without auto-reload.
+
+services:
+  customer-service:
+    volumes: !reset []
+    command: >-
+      uvicorn app.customer_main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips=* --no-access-log
+
+  admin-service:
+    volumes: !reset []
+    command: >-
+      uvicorn app.admin_main:app --host 0.0.0.0 --port 8000
+      --proxy-headers --forwarded-allow-ips=* --no-access-log
+
+  migrate:
+    volumes: !reset []
+
+  seed:
+    volumes: !reset []

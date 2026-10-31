@@ -1,0 +1,12 @@
+# Files executed or parsed inside Linux containers must keep LF line endings,
+# even when checked out on Windows.
+Jenkinsfile        text eol=lf
+*.sh               text eol=lf
+*.conf             text eol=lf
+*.yml              text eol=lf
+*.yaml             text eol=lf
+*.alloy            text eol=lf
+*.properties       text eol=lf
+Dockerfile         text eol=lf
+.coveragerc        text eol=lf
+observability/grafana/dashboards/*.json text eol=lf

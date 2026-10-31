@@ -38,6 +38,7 @@ CUSTOMER_ROUTERS = [
 
 app = create_service_app(
     service_name="Customer Service",
+    service_id="customer-service",
     description="Credora customer banking APIs",
     routers=CUSTOMER_ROUTERS,
 )

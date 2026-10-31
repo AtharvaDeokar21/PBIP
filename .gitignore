@@ -1,16 +1,40 @@
+# --- Secrets / environment ------------------------------------------------
 .env
+.env.*
+!.env.example
+backend/.env
+
+# --- Python ---------------------------------------------------------------
 *.py[cod]
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .venv/
 venv/
+
+# --- Test, coverage and analysis reports ----------------------------------
+backend/reports/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.scannerwork/
+.sonar/
+
+# --- Node / frontend build output -----------------------------------------
 node_modules/
 .next/
 dist/
 build/
+
+# --- Logs, editors, OS, tooling --------------------------------------------
 *.log
 .DS_Store
+Thumbs.db
 .idea/
 .vscode/
+.claude/
+
+# --- Local files ------------------------------------------------------------
 use_case.txt

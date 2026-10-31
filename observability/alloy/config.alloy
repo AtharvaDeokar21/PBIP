@@ -1,0 +1,97 @@
+// Ships stdout/stderr of the Credora containers (application + CI stacks) to Loki.
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "containers" {
+  targets = []
+
+  // Only containers of the credora and credora-ci compose projects.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = "credora(-ci)?"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_log_stream"]
+    target_label  = "stream"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.credora.receiver]
+}
+
+loki.process "credora" {
+  // Backend services log one JSON object per line: promote level and logger.
+  stage.match {
+    selector = "{service=~\"customer-service|admin-service|migrate|seed\"}"
+
+    stage.json {
+      expressions = {
+        level  = "level",
+        logger = "logger",
+        ts     = "ts",
+      }
+    }
+
+    stage.timestamp {
+      source = "ts"
+      format = "RFC3339"
+    }
+
+    stage.labels {
+      values = {
+        level  = "",
+        logger = "",
+      }
+    }
+  }
+
+  // Gateway access log is JSON as well; mark error responses with a level.
+  stage.match {
+    selector = "{service=\"gateway\"}"
+
+    stage.json {
+      expressions = { status = "status" }
+    }
+
+    stage.template {
+      source   = "level"
+      template = "{{ if ge (atoi .status) 500 }}ERROR{{ else if ge (atoi .status) 400 }}WARNING{{ else }}INFO{{ end }}"
+    }
+
+    stage.labels {
+      values = { level = "" }
+    }
+  }
+
+  forward_to = [loki.write.default.receiver]
+}
+
+loki.write "default" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

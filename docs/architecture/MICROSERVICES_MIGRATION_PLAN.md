@@ -276,6 +276,8 @@ docker compose down                               # stop the platform
 
 ## 10. Operational considerations
 
+CI/CD (Jenkins, SonarQube), structured logging and the observability stack (Prometheus, Loki, Alloy, Grafana) are described in [CICD_OBSERVABILITY_PLAN.md](CICD_OBSERVABILITY_PLAN.md).
+
 | Topic | Guidance |
 |---|---|
 | Database connections | Each service maintains its own connection pool (10 + 10 overflow). Monitor the Supabase connection count when scaling service replicas. |
@@ -287,6 +289,6 @@ docker compose down                               # stop the platform
 
 ## 11. Future enhancements
 
-- Centralised logging, metrics and distributed tracing (OpenTelemetry with a Grafana-based backend).
+- Distributed tracing (OpenTelemetry) on top of the existing metrics and log correlation.
 - Token audiences per service and service-to-service authentication.
 - Independent data ownership per service (separate schemas or databases) if the services need to evolve independently.
