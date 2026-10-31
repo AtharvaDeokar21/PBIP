@@ -191,7 +191,7 @@ The `(workspace)` directory is a Next.js route group and does not appear in the 
 
 The customer-facing portal is fully wired to the FastAPI backend with typed API clients and React resource hooks:
 - **Client & Hook Architecture**:
-  - `src/lib/customer/api.ts`: Typed Fetch API client mirroring every endpoint in `docs/api/customer/` with automatic Bearer token injection from `localStorage`. Base URL configured via `NEXT_PUBLIC_API_URL` (default: `http://127.0.0.1:8000/api/v1`).
+  - `src/lib/customer/api.ts`: Typed Fetch API client mirroring every endpoint in `docs/api/customer/` with automatic Bearer token injection from `localStorage`. Base URL configured via `NEXT_PUBLIC_API_URL`; set it to the API gateway, `http://localhost:8080/api/v1` (Docker sets this at build time).
   - `src/components/use-customer-api.ts`: Reusable React data hooks (`useCustomerSummary`, `useCustomerProfile`, `useAccounts`, `useTransactions`, `usePayees`, `useTransfers`, `useBillers`, `useLoanProducts`, `useHoldings`, etc.) with loading, error, and refresh mechanics.
   - `src/components/customer-pages.tsx`: Connected to live data while maintaining seamless offline/demo fallbacks for unauthenticated or local development without a running backend.
 - **Implemented Customer Workflows**:
@@ -227,15 +227,13 @@ All modules share design system conventions with dark cyber tokens, interactive 
 
 The FastAPI backend exposes the endpoints listed below, but the frontend does not call them yet. The current interface uses sample data and local-only interactions.
 
-Integration work includes an agreed API/service layer, secure session handling, server-enforced authorization, protected routes, loading/error/retry states and replacing fixtures with consistent live records. Coordinate the frontend origin with backend CORS configuration: the frontend scripts bind to `127.0.0.1`, while the current backend allowlist uses `localhost` origins.
+Integration work includes an agreed API/service layer, secure session handling, server-enforced authorization, protected routes, loading/error/retry states and replacing fixtures with consistent live records.
 
 Do not place real customer information behind the current public routes. Keep secrets server-side and follow the repository's review rule for shared API or schema changes.
 
 ## Backend API endpoints
 
-The API is served by FastAPI. The development base URL is `http://localhost:8000`, and the versioned routes use the `/api/v1` prefix. For example, `GET /api/v1/accounts` is available at `http://localhost:8000/api/v1/accounts`. The backend's interactive API documentation is at `http://localhost:8000/docs`.
-
-When frontend integration is implemented, configure the API base URL through an environment variable such as `NEXT_PUBLIC_API_URL` rather than hardcoding it in components. No API client or such environment variable is currently required by this sample-data UI.
+The API is served by the FastAPI customer and admin services behind the nginx API gateway. The development base URL is `http://localhost:8080`, and the versioned routes use the `/api/v1` prefix. For example, `GET /api/v1/accounts` is available at `http://localhost:8080/api/v1/accounts`. Interactive API documentation is at `http://localhost:8001/docs` (customer-service) and `http://localhost:8002/docs` (admin-service).
 
 Unless marked public, endpoints require a bearer access token returned by `POST /api/v1/auth/login`. Customer endpoints additionally require a customer identity; internal endpoints enforce their listed roles. The API is the authority for access control.
 

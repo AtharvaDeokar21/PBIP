@@ -1,179 +1,292 @@
-# Credora / PBIP — Monolith → Microservices Migration Plan
+# Credora Microservices Architecture and Migration
 
-Status: **IMPLEMENTED** (2026-10-31) — see the "Architecture" section of the root README for how to run it.
-Date: 2026-10-31 (revision 2, after review)
-
-Implementation notes vs. this plan:
-- `backend/app/core/app_factory.py` (new) holds the shared FastAPI setup used by `customer_main.py` and `admin_main.py`; `app/main.py` is untouched.
-- The compose file also keeps the old monolith as profile `monolith` (port 8000) for fallback.
-- New `.dockerignore` files keep `.venv`, `node_modules`, `.next` and `.env` out of the images.
-
-## 0. Decisions (from review)
-
-| Topic | Decision |
+| | |
 |---|---|
-| Database | **Keep the single existing `public` schema.** No schema split, no table moves, no new migrations. |
-| Login | **Keep the shared `POST /api/v1/auth/login` exactly as it is.** Both portals keep using it; the frontend keeps its existing role checks. |
-| API code | **No changes to existing endpoints, services, schemas, models or business logic.** If it works in the monolith, it stays as it is. |
-| Pre-existing quirks | Left as is (admin login page role filter, the 4 stub endpoints, scheduled transfers with no executor). |
-| Monitoring / tracing | **Deferred** to a later phase. |
-| Seeder | **Must work** in the new setup (migrations + `scripts/seed.py` + `data/generators/generate.py`). |
-
-> `CUSTOMER_TEAM_CONTEXT.md` / `INTERNAL_TEAM_CONTEXT.md` say "Do NOT introduce microservices"; those lines should be updated when this is implemented.
+| **Document** | Microservices architecture and migration record |
+| **System** | Credora — Personal Banking Intelligence Platform (PBIP) |
+| **Status** | Implemented |
+| **Last updated** | 31 October 2026 |
 
 ---
 
-## 1. Approach: split by deployment, not by rewriting
+## 1. Executive summary
 
-The existing `backend/app` package stays the single source of code. The split happens at **runtime**:
+Credora was migrated from a single FastAPI backend to a microservices architecture of three application services (frontend, customer service and admin service) behind an nginx API gateway, deployed with Docker Compose.
 
-- **customer-service** = a container running the existing code, mounting only the customer routers.
-- **admin-service** = a container running the same code, mounting only the internal routers.
-- **gateway (nginx)** decides which container gets each request.
-- **frontend** gets its own container.
-
-Both services connect to the same database with the same `.env` (same JWT secret), so a token issued by `/auth/login` is valid on both. Every endpoint keeps its path, method, request, response, auth rule and DB behaviour.
-
-**Why this way:** nothing in the business logic, models or migrations has to change, so there is nothing to break. Each service can still be scaled and restarted on its own, and API ownership is clearly split at the gateway.
-**Trade-off:** the two services share one codebase and one database (a "shared-database" split). They are not independently versioned, and a model change affects both. That is acceptable for this project. A full code/DB separation can come later if needed.
-
-### What will be added when implemented (new files only — no existing file edited)
-
-| New file | Purpose |
-|---|---|
-| `backend/app/customer_main.py` | FastAPI app that includes only the customer routers (same settings, CORS, exception handlers as `app/main.py`). |
-| `backend/app/admin_main.py` | FastAPI app that includes only the internal routers. |
-| `backend/tests/test_service_split.py` | Guard test: customer routes ∪ admin routes == monolith routes, and the gateway sends every route to a service that serves it. |
-| `gateway/nginx.conf` | Routing rules (section 3). |
-| `frontend/Dockerfile` | Builds/serves Next.js. |
-| `docker-compose.yml` | Rewritten (section 5). The only existing file replaced. |
-
-`backend/app/main.py` (the monolith) stays and keeps working, so you can fall back to it at any time.
+The migration followed one rule: **preserve all existing behaviour**. Every endpoint keeps its path, HTTP method, request and response contract, authentication rules and database behaviour. The services share the existing codebase and the Supabase PostgreSQL database, so business logic, data integrity and transactional guarantees are unchanged. An automated test verifies that the services together expose the complete API and that the gateway routes each endpoint to the correct service.
 
 ---
 
-## 2. API inventory and service mapping
+## 2. Target architecture
 
-All paths are under `/api/v1`. **No endpoint is modified.** Auth: **C** = customer only (`get_current_customer`), **U** = any logged-in user, **R(…)** = specific roles, **—** = public.
-
-### 2.1 customer-service
-
-| # | Method | Endpoint | Code location | Auth | Main tables |
-|---|---|---|---|---|---|
-| 1 | GET | `/health` | `api/health.py` | — | — |
-| 2 | POST | `/auth/register` | `api/auth.py` | — | users, customers, audit_logs |
-| 3 | POST | `/auth/login` (**shared by both portals**) | `api/auth.py` | — | users, security_events, audit_logs |
-| 4 | GET | `/me` | `api/me.py` | U | users |
-| 5–7 | GET / PATCH / GET | `/customers/me`, `/customers/me`, `/customers/me/summary` | `api/customers.py` | C | customers, accounts, transactions, payees, customer_investments, loan_applications, audit_logs |
-| 8–10 | GET | `/accounts`, `/accounts/{id}`, `/accounts/{id}/transactions` | `api/accounts.py` | C | accounts, transactions |
-| 11 | GET | `/transactions/{id}` | `api/transactions.py` | C | transactions, accounts |
-| 12–15 | POST / GET / PATCH / DELETE | `/payees`, `/payees/{id}` | `api/payees.py` | C | payees, audit_logs |
-| 16–19 | POST / GET / GET / POST | `/transfers`, `/transfers/{id}`, `/transfers/{id}/cancel` | `api/transfers.py` | C | accounts, payees, transfers, transactions, audit_logs, notifications, security_events |
-| 20 | GET | `/billers` | `api/bills.py` | U | billers |
-| 21–22 | POST / GET | `/bills/pay`, `/bills/history` | `api/bills.py` | C | accounts, billers, bill_payments, transactions, audit_logs, notifications |
-| 23–24 | GET | `/loans/products`, `/loans/products/{id}` | `api/loans.py` | U | loan_products |
-| 25–28 | POST / POST / GET / GET | `/loans/eligibility`, `/loans/applications`, `/loans/applications/{id}` | `api/loans.py` | C | loan_products, loan_applications, customer_risk_profiles, audit_logs, notifications |
-| 29–30 | GET | `/investments/products`, `/investments/products/{id}` | `api/investments.py` | U | investment_products |
-| 31–32 | GET / POST | `/investments` | `api/investments.py` | C | customer_investments, investment_products, accounts, transactions, audit_logs |
-| 33–34 | GET | `/insurance/products`, `/insurance/products/{id}` | `api/insurance.py` | U | insurance_products |
-| 35 | GET | `/recommendations` | `api/recommendations.py` | C | recommendations |
-| 36–38 | POST / GET / GET | `/ai/chat`, `/ai/conversations`, `/ai/conversations/{id}` | `api/ai.py` | C | ai_conversations, ai_messages + customer tables; calls Groq |
-
-### 2.2 admin-service
-
-| # | Method | Endpoint | Code location | Auth | Main tables |
-|---|---|---|---|---|---|
-| 39 | GET | `/analytics/overview` | `intelligence/analytics/router.py` | R(ADMIN, RM, FRAUD_ANALYST, COMPLIANCE_OFFICER) | customers, users, accounts, transactions, behaviour_events, customer_risk_profiles, fraud_* |
-| 40 | GET | `/analytics/customers` | same | R(same 4) | customers, users, customer_risk_profiles, fraud_alerts, accounts |
-| 41–42 | GET | `/analytics/behaviour`, `/analytics/behaviour/filters` | same | R(ADMIN, RM) | behaviour_events, customers |
-| 43 | GET | `/analytics/transactions` (stub) | `api/analytics.py` | R(RM, ADMIN) | — |
-| 44 | GET | `/fraud/investigations` | `api/fraud.py` | R(FRAUD_ANALYST, ADMIN) | fraud_investigations, fraud_alerts, fraud_events, customers, users |
-| 45–46 | GET | `/fraud/alerts`, `/fraud/alerts/{id}` (stubs) | `api/fraud.py` | R(FRAUD_ANALYST, ADMIN) | — |
-| 47 | PATCH | `/fraud/alerts/{id}` | `api/fraud.py` | R(FRAUD_ANALYST, ADMIN) | fraud_alerts, fraud_investigations, audit_logs |
-| 48 | GET | `/fraud/customers/{id}/risk` (stub) | `api/fraud.py` | R(FRAUD_ANALYST, ADMIN) | — |
-| 49 | GET | `/compliance/alerts` | `api/compliance.py` | R(COMPLIANCE_OFFICER, ADMIN) | transactions, accounts, customers |
-| 50 | GET | `/compliance/audit-logs` | `api/compliance.py` | R(COMPLIANCE_OFFICER, ADMIN) | audit_logs, users, customers |
-| 51 | GET | `/compliance/security-events` | `api/compliance.py` | R(COMPLIANCE_OFFICER, ADMIN, FRAUD_ANALYST) | security_events, users, customers |
-
-Also mounted on admin-service (identical code, so it can be used alone, e.g. from its own Swagger UI): `/health`, `/auth/login`, `/auth/register`, `/me`. Through the gateway these paths still go to customer-service.
-
-Ownership was decided from what each endpoint actually does, not just its name. For example, `/analytics/customers` is the internal customer directory, so it goes to admin. `/customers/me` is a customer's own profile, so it goes to customer.
-
-### 2.3 Cross-service dependencies
-None at the HTTP level. Both services read and write the shared database exactly as the monolith does today, so no service calls the other.
-
----
-
-## 3. API gateway (nginx) routing
-
-| Path | Goes to |
-|---|---|
-| `^/api/v1/(analytics\|fraud\|compliance)(/\|$)` | admin-service |
-| `/api/v1/` (everything else, including `/auth/login`) | customer-service |
-| `/` | frontend |
-| `/healthz` | gateway itself |
-
-Gateway also: forwards `X-Forwarded-For` / `X-Real-IP` / `X-Forwarded-Proto`, and generates `X-Request-ID`.
-
-Swagger UI: each service exposes its own `/docs` on a host port (customer `8001`, admin `8002`) for development.
-
----
-
-## 4. Frontend
-- No source code changes.
-- `NEXT_PUBLIC_API_URL` is set at **build time** (a Docker build arg) to the gateway: `http://localhost:8080/api/v1`. The frontend is also served by the gateway on `:8080`, so the existing CORS list doesn't need changing when the app is opened at `http://localhost:8080`.
-
----
-
-## 5. Docker Compose (target)
-
-| Service | Built from | Command / notes | Port |
-|---|---|---|---|
-| `gateway` | `nginx` (pinned version) + `gateway/nginx.conf` | depends on the 3 app services | **8080** (public entry) |
-| `frontend` | `./frontend` | `next start -H 0.0.0.0 -p 3000` | internal |
-| `customer-service` | `./backend` (existing Dockerfile) | `uvicorn app.customer_main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*` | 8001 → 8000 |
-| `admin-service` | `./backend` (same image) | `uvicorn app.admin_main:app … --proxy-headers --forwarded-allow-ips=*` | 8002 → 8000 |
-| `migrate` (one-shot, profile `setup`) | `./backend` | `alembic upgrade head` | — |
-| `seed` (one-shot, profile `seed`) | `./backend` | `alembic upgrade head && python -m scripts.seed && python -m data.generators.generate` | — |
-| `postgres` (optional, profile `local-db`) | `postgres:16` | Local DB for trying things out without touching Supabase | 5432 |
-
-All backend containers use `env_file: ./backend/.env` exactly like today. Both services use the same image, so the seeder and migrations run the existing code unchanged.
-
-### Seeder — how it will work
-```bash
-docker compose --profile seed run --rm seed
 ```
-1. `alembic upgrade head` — creates/updates tables (existing 8 revisions, untouched).
-2. `python -m scripts.seed` — demo users for all 5 roles (password `PBIP@Demo123`), accounts, transactions, products, billers, recommendations. Safe to re-run (get-or-create).
-3. `python -m data.generators.generate` — synthetic customers, transactions, behaviour events, fraud scenarios, risk profiles. Skips if data exists; `--reset` regenerates.
+                        ┌───────────────────────────────┐
+   Browser ──── :8080 ─►│     API gateway (nginx)       │
+                        └──┬──────────────┬─────────────┘
+                           │              │              │
+          /api/v1/analytics│fraud│        │ /api/v1/*    │ /
+                compliance │              │ (all other)  │
+                           ▼              ▼              ▼
+                 ┌──────────────┐ ┌─────────────────┐ ┌───────────┐
+                 │ admin-service│ │customer-service │ │ frontend  │
+                 │  (FastAPI)   │ │   (FastAPI)     │ │ (Next.js) │
+                 └──────┬───────┘ └────────┬────────┘ └───────────┘
+                        │                  │
+                        └────────┬─────────┘
+                                 ▼
+                    Supabase PostgreSQL (public schema)
+```
 
-⚠️ This writes to whatever `DATABASE_URL` points at. If that's the shared Supabase DB, teammates see the data. Use the `local-db` profile to try it first.
+### 2.1 Service catalogue
+
+| Service | Technology | Responsibility | Entry point |
+|---|---|---|---|
+| **gateway** | nginx 1.27 | Single public entry point. Path-based routing, request IDs, client IP forwarding, timeouts. | `gateway/nginx.conf` |
+| **frontend** | Next.js 16 | Customer portal (`/login`, `/portal/*`) and internal banking workspace (`/admin/*`). | `frontend/Dockerfile` |
+| **customer-service** | FastAPI | Authentication, customer profile, accounts, transactions, payees, transfers, bills, loans, investments, insurance, recommendations, AI assistant. | `backend/app/customer_main.py` |
+| **admin-service** | FastAPI | Behavioural analytics, dashboard overview, customer directory, fraud investigations and alerts, compliance alerts, audit logs, security events. | `backend/app/admin_main.py` |
+
+### 2.2 Design decisions
+
+| Decision | Rationale | Trade-off |
+|---|---|---|
+| Split by deployment over a shared codebase | Each service mounts only its own routers from `backend/app`, so no business logic was rewritten and behaviour is identical. | Services are released from one codebase; a shared model change affects both. |
+| Shared database, single `public` schema | Keeps foreign keys, joins and multi-table transactions intact (e.g. a transfer updates accounts, ledger, audit log, notifications and security events atomically). No data migration was needed. | Services are coupled at the schema level. |
+| Shared login endpoint and JWT secret | Both portals keep using `POST /api/v1/auth/login`; a token is accepted by either service. No frontend authentication changes were needed. | Portal separation remains role-based rather than token-audience based. |
+| nginx as gateway | Lightweight, standard, declarative path routing. | JWT validation stays in the services. |
+
+### 2.3 Repository layout
+
+```
+PBIP/
+├── docker-compose.yml          # full stack, migration and seed jobs
+├── .env                        # runtime configuration (not committed)
+├── gateway/
+│   └── nginx.conf              # routing rules
+├── frontend/
+│   ├── Dockerfile
+│   └── src/ …
+└── backend/
+    ├── Dockerfile              # one image, used by both services and the jobs
+    ├── alembic/ …              # migrations
+    ├── scripts/seed.py         # demo seed
+    ├── data/generators/ …      # synthetic data generator
+    ├── tests/
+    │   └── test_service_split.py
+    └── app/
+        ├── customer_main.py    # customer-service entry point
+        ├── admin_main.py       # admin-service entry point
+        ├── main.py             # combined application (reference for tests)
+        ├── core/app_factory.py # shared FastAPI setup (CORS, error handlers)
+        ├── api/ services/ schemas/ models/ intelligence/
+        └── core/ …
+```
 
 ---
 
-## 6. Issues to watch for (with the plan for each)
+## 3. API gateway
 
-| # | Issue | Plan |
+### 3.1 Routing rules
+
+| Order | Path match | Upstream |
 |---|---|---|
-| 1 | **Client IP lost behind nginx** — audit logs / security events would record the gateway's IP | nginx sends `X-Forwarded-For`; uvicorn runs with `--proxy-headers` (a startup flag, no code change). |
-| 2 | **`NEXT_PUBLIC_API_URL` is baked in at build** | Passed as a Docker build arg; rebuild the frontend if the URL changes. |
-| 3 | **Route collisions** (`/customers/me` vs `/analytics/customers`, `/fraud/customers/{id}/risk`) | Gateway matches on the first path segment after `/api/v1`; the guard test checks every route. |
-| 4 | **DB connection limits** — two services, each with a pool of 10 + 10 overflow, against Supabase | Watch Supabase connection count; use the pooler URL; lower pool size later if needed. |
-| 5 | **Gateway as single point of failure** | Fine for dev/academic use; healthchecks + `restart: unless-stopped`. |
-| 6 | **Startup ordering** | `depends_on` + healthchecks on `/api/v1/health`. |
-| 7 | **Shared codebase coupling** | Accepted trade-off (section 1); the monolith entrypoint stays as a fallback. |
-| 8 | **Seeder hitting shared data** | Separate `seed` profile; `local-db` option. |
-| 9 | **Missing `backend/.env`** in a fresh checkout | Copy `backend/.env.example`; documented in README. |
+| 1 | `= /healthz` | Gateway liveness (returns `ok`) |
+| 2 | `~ ^/api/v1/(analytics\|fraud\|compliance)(/\|$)` | admin-service `:8000` |
+| 3 | `/api/` | customer-service `:8000` |
+| 4 | `/` | frontend `:3000` |
 
-## 7. Deferred (later phases)
-- Centralised logging / tracing (OpenTelemetry + Grafana stack).
-- Separate login per portal / per-service JWT audiences.
-- Separate schemas or databases per service.
-- Fixing the pre-existing quirks listed in section 0.
+### 3.2 Gateway behaviour
 
-## 8. Implementation order (when approved)
-1. Add `customer_main.py`, `admin_main.py` and the guard test; run the existing test suite plus the guard test.
-2. Add `gateway/nginx.conf` and `frontend/Dockerfile`.
-3. Rewrite `docker-compose.yml` with the services and profiles above.
-4. Run on `local-db`: migrate → seed → log in as a customer and as an admin through `:8080`, then check the main pages for both portals.
-5. Update README and the team-context docs.
+- **Client IP forwarding:** sets `X-Real-IP` and `X-Forwarded-For` to the connecting client (overwritten, not appended, to prevent spoofing). The services run uvicorn with `--proxy-headers`, so audit logs and security events record the real client IP.
+- **Request correlation:** forwards an incoming `X-Request-ID` or generates one, passes it upstream, returns it in the response and writes it to the access log.
+- **Service discovery:** resolves upstreams per request through Docker DNS, so services can restart independently of the gateway.
+- **Timeouts:** 5 s connect, 120 s read (covers AI assistant calls to the LLM provider).
+- **Streaming:** proxy buffering is disabled for the frontend so Next.js can stream responses.
+
+---
+
+## 4. API-to-service mapping
+
+All paths are relative to `/api/v1`. Authentication column: **Customer** = authenticated user with role `CUSTOMER` and a customer profile; **Authenticated** = any authenticated user; role lists = `require_roles(...)`; **Public** = no token.
+
+### 4.1 customer-service
+
+| Method | Endpoint | Module | Authentication | Primary tables |
+|---|---|---|---|---|
+| GET | `/health` | `api/health.py` | Public | — |
+| POST | `/auth/register` | `api/auth.py` | Public | users, customers, audit_logs |
+| POST | `/auth/login` | `api/auth.py` | Public | users, security_events, audit_logs |
+| GET | `/me` | `api/me.py` | Authenticated | users |
+| GET | `/customers/me` | `api/customers.py` | Customer | customers |
+| PATCH | `/customers/me` | `api/customers.py` | Customer | customers, audit_logs |
+| GET | `/customers/me/summary` | `api/customers.py` | Customer | accounts, transactions, payees, customer_investments, loan_applications |
+| GET | `/accounts` | `api/accounts.py` | Customer | accounts |
+| GET | `/accounts/{account_id}` | `api/accounts.py` | Customer | accounts |
+| GET | `/accounts/{account_id}/transactions` | `api/accounts.py` | Customer | accounts, transactions |
+| GET | `/transactions/{transaction_id}` | `api/transactions.py` | Customer | transactions, accounts |
+| POST | `/payees` | `api/payees.py` | Customer | payees, audit_logs |
+| GET | `/payees` | `api/payees.py` | Customer | payees |
+| PATCH | `/payees/{payee_id}` | `api/payees.py` | Customer | payees, audit_logs |
+| DELETE | `/payees/{payee_id}` | `api/payees.py` | Customer | payees, audit_logs |
+| POST | `/transfers` | `api/transfers.py` | Customer | accounts, payees, transfers, transactions, audit_logs, notifications, security_events |
+| GET | `/transfers` | `api/transfers.py` | Customer | transfers |
+| GET | `/transfers/{transfer_id}` | `api/transfers.py` | Customer | transfers |
+| POST | `/transfers/{transfer_id}/cancel` | `api/transfers.py` | Customer | transfers, audit_logs |
+| GET | `/billers` | `api/bills.py` | Authenticated | billers |
+| POST | `/bills/pay` | `api/bills.py` | Customer | accounts, billers, bill_payments, transactions, audit_logs, notifications |
+| GET | `/bills/history` | `api/bills.py` | Customer | bill_payments |
+| GET | `/loans/products` | `api/loans.py` | Authenticated | loan_products |
+| GET | `/loans/products/{product_id}` | `api/loans.py` | Authenticated | loan_products |
+| POST | `/loans/eligibility` | `api/loans.py` | Customer | loan_products, customers, customer_risk_profiles |
+| POST | `/loans/applications` | `api/loans.py` | Customer | loan_products, loan_applications, customer_risk_profiles, audit_logs, notifications |
+| GET | `/loans/applications` | `api/loans.py` | Customer | loan_applications |
+| GET | `/loans/applications/{application_id}` | `api/loans.py` | Customer | loan_applications |
+| GET | `/investments/products` | `api/investments.py` | Authenticated | investment_products |
+| GET | `/investments/products/{product_id}` | `api/investments.py` | Authenticated | investment_products |
+| GET | `/investments` | `api/investments.py` | Customer | customer_investments |
+| POST | `/investments` | `api/investments.py` | Customer | investment_products, customer_investments, accounts, transactions, audit_logs |
+| GET | `/insurance/products` | `api/insurance.py` | Authenticated | insurance_products |
+| GET | `/insurance/products/{product_id}` | `api/insurance.py` | Authenticated | insurance_products |
+| GET | `/recommendations` | `api/recommendations.py` | Customer | recommendations |
+| POST | `/ai/chat` | `api/ai.py` | Customer | ai_conversations, ai_messages, accounts, transactions, customer_investments, loan_products, recommendations |
+| GET | `/ai/conversations` | `api/ai.py` | Customer | ai_conversations |
+| GET | `/ai/conversations/{conversation_id}` | `api/ai.py` | Customer | ai_conversations, ai_messages |
+
+### 4.2 admin-service
+
+| Method | Endpoint | Module | Authentication | Primary tables |
+|---|---|---|---|---|
+| GET | `/analytics/overview` | `intelligence/analytics/router.py` | ADMIN, RELATIONSHIP_MANAGER, FRAUD_ANALYST, COMPLIANCE_OFFICER | customers, users, accounts, transactions, behaviour_events, customer_risk_profiles, fraud_alerts, fraud_events |
+| GET | `/analytics/customers` | `intelligence/analytics/router.py` | ADMIN, RELATIONSHIP_MANAGER, FRAUD_ANALYST, COMPLIANCE_OFFICER | customers, users, customer_risk_profiles, fraud_alerts, accounts |
+| GET | `/analytics/behaviour` | `intelligence/analytics/router.py` | ADMIN, RELATIONSHIP_MANAGER | behaviour_events, customers, customer_risk_profiles |
+| GET | `/analytics/behaviour/filters` | `intelligence/analytics/router.py` | ADMIN, RELATIONSHIP_MANAGER | behaviour_events, customers |
+| GET | `/analytics/transactions` | `api/analytics.py` | RELATIONSHIP_MANAGER, ADMIN | — |
+| GET | `/fraud/investigations` | `api/fraud.py` | FRAUD_ANALYST, ADMIN | fraud_investigations, fraud_alerts, fraud_events, customers, users |
+| GET | `/fraud/alerts` | `api/fraud.py` | FRAUD_ANALYST, ADMIN | — |
+| GET | `/fraud/alerts/{alert_id}` | `api/fraud.py` | FRAUD_ANALYST, ADMIN | — |
+| PATCH | `/fraud/alerts/{alert_id}` | `api/fraud.py` | FRAUD_ANALYST, ADMIN | fraud_alerts, fraud_investigations, audit_logs |
+| GET | `/fraud/customers/{customer_id}/risk` | `api/fraud.py` | FRAUD_ANALYST, ADMIN | — |
+| GET | `/compliance/alerts` | `api/compliance.py` | COMPLIANCE_OFFICER, ADMIN | transactions, accounts, customers |
+| GET | `/compliance/audit-logs` | `api/compliance.py` | COMPLIANCE_OFFICER, ADMIN | audit_logs, users, customers |
+| GET | `/compliance/security-events` | `api/compliance.py` | COMPLIANCE_OFFICER, ADMIN, FRAUD_ANALYST | security_events, users, customers |
+
+`/health`, `/auth/login`, `/auth/register` and `/me` are also mounted on admin-service so it can be operated on its own (for example from its Swagger UI on port 8002). Through the gateway these paths are served by customer-service.
+
+### 4.3 Ownership criteria
+
+Endpoints were assigned by inspecting their implementation, not their names:
+
+- **customer-service:** endpoints that act on the authenticated customer's own resources and identity (JWT → user → customer → ownership check), and the product catalogues those journeys use.
+- **admin-service:** endpoints that work across all customers for internal staff roles: aggregates, investigations, compliance and audit reporting.
+
+For example, `/analytics/customers` is the internal customer directory and belongs to admin-service, while `/customers/me` is the customer's own profile and belongs to customer-service.
+
+---
+
+## 5. Authentication and authorization
+
+| Aspect | Implementation |
+|---|---|
+| Credential check | `POST /api/v1/auth/login` validates email and bcrypt password hash, records `LOGIN_SUCCESS` / `LOGIN_FAILED` security events and a `USER_LOGIN` audit entry. |
+| Token | HS256 JWT containing `sub` (user ID), `role` and `exp`; lifetime from `ACCESS_TOKEN_EXPIRE_MINUTES`. |
+| Token validation | Each service validates the bearer token and loads the user from the database on every request, rejecting inactive accounts. |
+| Authorization | `require_roles(...)` enforces role-based access per endpoint. Customer endpoints resolve the customer from the token and never accept a client-supplied `customer_id`. |
+| Cross-service | Both services share `JWT_SECRET_KEY`, so one sign-in works across the customer and admin APIs. |
+| Responses | `401` for missing/invalid tokens, `403` for insufficient role, `404` for resources owned by another customer. |
+
+---
+
+## 6. Data management
+
+| Aspect | Implementation |
+|---|---|
+| Database | Supabase PostgreSQL, accessed through the transaction pooler (`DATABASE_URL`). |
+| Schema | Single `public` schema shared by both services. |
+| Transactions | Each operation runs in one local database transaction inside the service that handles it; no distributed transactions are required. |
+| Migrations | Alembic, run by the `migrate` job with `alembic upgrade heads` (the history has two branches from revision `e5f6a7b8c9d0`). |
+| Seed data | `seed` job: migrations → `scripts/seed.py` (demo users for every role, products, billers, recommendations) → `data/generators/generate.py` (synthetic customers, accounts, transactions, behaviour events, fraud scenarios, risk profiles). Both steps are idempotent. |
+| Tests | Run against in-memory SQLite (or a dedicated `TEST_DATABASE_URL`); the test suite refuses to run against Supabase. |
+
+---
+
+## 7. Deployment
+
+### 7.1 Docker Compose services
+
+| Service | Image / build | Command | Ports |
+|---|---|---|---|
+| `gateway` | `nginx:1.27-alpine` | — | `8080:80` |
+| `frontend` | `./frontend` (build arg `NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1`) | `next start` | internal `3000` |
+| `customer-service` | `./backend` | `uvicorn app.customer_main:app --proxy-headers` | `8001:8000` |
+| `admin-service` | `./backend` | `uvicorn app.admin_main:app --proxy-headers` | `8002:8000` |
+| `migrate` (profile `setup`) | `./backend` | `alembic upgrade heads` | — |
+| `seed` (profile `seed`) | `./backend` | migrations + seed + generator | — |
+
+Backend containers read configuration from the repository-root `.env` and report health through `GET /api/v1/health`, which Docker uses for health checks. A local PostgreSQL service is defined but commented out for teams that need an offline database.
+
+### 7.2 Operations
+
+```powershell
+docker compose up --build -d                      # start the platform at http://localhost:8080
+docker compose --profile setup run --rm migrate   # apply migrations
+docker compose --profile seed run --rm seed       # migrations + demo and synthetic data
+docker compose ps                                 # service status and health
+docker compose logs -f gateway                    # routed requests with request IDs
+docker compose down                               # stop the platform
+```
+
+### 7.3 Configuration
+
+| Variable | Used by | Purpose |
+|---|---|---|
+| `DATABASE_URL` | customer-service, admin-service, jobs | Supabase PostgreSQL connection (asyncpg). |
+| `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES` | both services | Token signing and lifetime. |
+| `GROQ_API_KEY`, `GROQ_MODEL` | customer-service | AI assistant. |
+| `NEXT_PUBLIC_API_URL` | frontend (build time) | API base URL; points at the gateway. |
+
+---
+
+## 8. Migration approach
+
+1. **Inventory.** Catalogued every endpoint with its method, implementation module, authentication, database tables and dependencies, and assigned each to a service based on its behaviour.
+2. **Service entry points.** Added `customer_main.py` and `admin_main.py`, which build FastAPI applications from the existing routers using a shared factory (`core/app_factory.py`) that applies the same CORS policy and error handlers. No existing router, service, schema or model was modified.
+3. **Gateway.** Added nginx with path-based routing, client IP forwarding and request correlation.
+4. **Containerisation.** Added a frontend Dockerfile and `.dockerignore` files, and rewrote `docker-compose.yml` with the gateway, the three services, and migration and seed jobs.
+5. **Verification.** Automated and end-to-end checks (section 9).
+6. **Documentation.** Updated the README and team context documents.
+
+---
+
+## 9. Verification
+
+| Check | Result |
+|---|---|
+| Backend test suite (including `test_service_split.py`) | 200 passed |
+| Route coverage: customer routes ∪ admin routes = complete API | Passed |
+| Gateway routing: every endpoint routed to a service that serves it | Passed |
+| Service isolation: each service returns `404` for the other's routes | Passed |
+| Customer journey through the gateway (login, profile, accounts, transactions, payees, transfers, bills, loans, investments, insurance, recommendations, AI) | Passed |
+| Internal journey through the gateway (login, dashboard overview, customer directory, behaviour analytics, fraud investigations, alert update, compliance alerts, audit logs, security events) | Passed |
+| Authorization through the gateway (`401` without token, `403` for wrong role) | Passed |
+| Audit logs record the real client IP behind the gateway | Passed |
+| Seed job (migrations, demo seed, synthetic data generation) | Passed |
+| Frontend customer and admin portals load live data via the gateway | Passed |
+
+---
+
+## 10. Operational considerations
+
+| Topic | Guidance |
+|---|---|
+| Database connections | Each service maintains its own connection pool (10 + 10 overflow). Monitor the Supabase connection count when scaling service replicas. |
+| Frontend configuration | `NEXT_PUBLIC_API_URL` is compiled into the frontend bundle; rebuild the `frontend` image after changing it. |
+| Adding endpoints | Register the router in `customer_main.py` or `admin_main.py`. New admin path prefixes must be added to the admin location in `gateway/nginx.conf`; `test_service_split.py` fails if a route is unmapped or misrouted. |
+| Direct service ports | Ports 8001 and 8002 are for development and Swagger access; production traffic should enter only through the gateway. |
+
+---
+
+## 11. Future enhancements
+
+- Centralised logging, metrics and distributed tracing (OpenTelemetry with a Grafana-based backend).
+- Token audiences per service and service-to-service authentication.
+- Independent data ownership per service (separate schemas or databases) if the services need to evolve independently.

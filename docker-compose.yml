@@ -5,7 +5,6 @@ name: credora
 #   docker compose up --build                      # gateway + frontend + customer/admin services
 #   docker compose --profile seed run --rm seed    # migrate + seed demo data + synthetic data
 #   docker compose --profile setup run --rm migrate
-#   docker compose --profile monolith up backend   # old single backend (fallback) on :8000
 #
 # Open the app at http://localhost:8080 (everything goes through the gateway).
 # Database: the Supabase PostgreSQL from DATABASE_URL in the root .env file.
@@ -112,13 +111,6 @@ services:
   #     interval: 5s
   #     timeout: 3s
   #     retries: 10
-
-  backend:
-    <<: *backend
-    profiles: ["monolith"]
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    ports:
-      - "8000:8000"
 
 # volumes:
 #   credora-pgdata:

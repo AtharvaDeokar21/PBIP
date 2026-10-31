@@ -45,13 +45,13 @@ The overall system combines:
 6. AI-assisted banking interactions
 7. Internal banking operations
 
-The backend runs as two services (customer-service, admin-service) behind an nginx gateway, sharing one codebase and one database. See `docs/architecture/MICROSERVICES_MIGRATION_PLAN.md`.
+The platform uses a microservices architecture: frontend, customer-service and admin-service behind an nginx API gateway, sharing one codebase and one database. See `docs/architecture/MICROSERVICES_MIGRATION_PLAN.md`.
 
 The backend follows:
 
 Router → Pydantic Schema → Service → SQLAlchemy → PostgreSQL
 
-Do NOT introduce further microservices for individual banking features; customer APIs belong in customer-service (`app/customer_main.py`).
+Customer APIs are served by customer-service; register new customer routers in `app/customer_main.py`.
 
 ---
 
@@ -829,7 +829,6 @@ Do NOT implement unless explicitly requested:
 - Production-grade payment settlement
 - Actual stock exchange integration
 - Actual insurance underwriting
-- Additional microservices beyond customer-service / admin-service
 - Event-driven Kafka infrastructure
 - Complex distributed transaction systems
 
