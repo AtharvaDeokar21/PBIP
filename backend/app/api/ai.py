@@ -145,7 +145,7 @@ async def chat(
         if not recs:
             response_text = "You have no active tailored recommendations at the moment. Keep banking with us to unlock custom insights!"
         else:
-            lines = [f"• {r.title}: {r.reason or ''}" for r in recs[:3]]
+            lines = [f"• {r.product_type.title()}: {r.reason or ''}" for r in recs[:3]]
             response_text = "Here are personalized recommendations curated for you:\n\n" + "\n".join(lines)
 
     elif any(k in msg_lower for k in ("invest", "portfolio", "wealth", "mutual fund")):

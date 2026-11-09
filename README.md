@@ -122,7 +122,7 @@ docker compose -f ci/docker-compose.yml down   # stop (volumes are kept)
 
 ### Pipeline
 
-Job `credora` builds `https://github.com/AtharvaDeokar21/PBIP` branch `feature/cicd` using the root `Jenkinsfile`. The branch is polled every 2 minutes: the first build starts automatically shortly after Jenkins comes up, and **every push to `feature/cicd` triggers a build**. *Build with Parameters* runs it manually.
+Job `credora` builds `https://github.com/AtharvaDeokar21/PBIP` branch `main` using the root `Jenkinsfile`. The branch is polled every 2 minutes: the first build starts automatically shortly after Jenkins comes up, and **every push to `main` triggers a build**. *Build with Parameters* runs it manually.
 
 | Stage | What it does |
 | --- | --- |
@@ -191,7 +191,7 @@ Both services write one JSON object per line to stdout:
 | `sonar-init` fails with an authentication error | `SONAR_ADMIN_PASSWORD` was changed after the first start. Use the original value, or reset with `docker compose -f ci/docker-compose.yml down -v` (deletes SonarQube and Jenkins data). |
 | Pipeline waits at *Quality gate* | SonarQube must reach Jenkins through the webhook `http://jenkins:8080/sonarqube-webhook/` (created by `sonar-init`); check *Administration → Webhooks* in SonarQube. |
 | A pipeline run replaced my local stack | Expected: Jenkins deploys to the same Docker engine. Run `docker compose up -d --build` to go back to the local source. |
-| Jenkins does not see my changes | Jenkins builds what is pushed to `feature/cicd` on GitHub. Commit and push. |
+| Jenkins does not see my changes | Jenkins builds what is pushed to `main` on GitHub. Commit and push. |
 | Shell scripts fail with `\r` errors | Line endings are forced to LF by `.gitattributes`; re-checkout the files (`git rm --cached -r . && git reset --hard`). |
 | Jenkins target down in Prometheus | Normal while the CI stack is not running. |
 

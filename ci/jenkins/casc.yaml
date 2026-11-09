@@ -4,7 +4,7 @@
 #   /run/secrets/sonar/token  - SonarQube analysis token written by sonar-init
 
 jenkins:
-  systemMessage: "Credora CI/CD — pipeline: credora (branch feature/cicd)"
+  systemMessage: "Credora CI/CD — pipeline: credora (branch main)"
   numExecutors: 2
   mode: NORMAL
   securityRealm:
@@ -79,7 +79,7 @@ jobs:
                 remote {
                   url('https://github.com/AtharvaDeokar21/PBIP.git')
                 }
-                branch('*/feature/cicd')
+                branch('*/main')
               }
             }
             scriptPath('Jenkinsfile')

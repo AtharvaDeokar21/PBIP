@@ -7,7 +7,7 @@ name: credora-ci
 # Reads the repository-root .env (application secrets and the optional
 # JENKINS_ADMIN_*, SONAR_ADMIN_PASSWORD keys; see .env.example).
 #
-#   Jenkins    http://localhost:8081   (pipeline job "credora", branch feature/cicd)
+#   Jenkins    http://localhost:8081   (pipeline job "credora", branch main)
 #   SonarQube  http://localhost:9000   (project "credora")
 
 services:
