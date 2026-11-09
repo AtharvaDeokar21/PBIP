@@ -45,6 +45,8 @@ Gateway routing (`gateway/nginx.conf`): `/api/v1/analytics|fraud|compliance/*` â
 
 Architecture details and the API-to-service mapping: [docs/architecture/MICROSERVICES_MIGRATION_PLAN.md](docs/architecture/MICROSERVICES_MIGRATION_PLAN.md). CI/CD and observability design: [docs/architecture/CICD_OBSERVABILITY_PLAN.md](docs/architecture/CICD_OBSERVABILITY_PLAN.md).
 
+**Full project documentation** (architecture diagram, tools and technologies, functional and non-functional requirements, coverage metrics, CI/CD walkthrough with screenshots): [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md).
+
 ## Configuration
 
 All stacks read the repository-root `.env` (never committed). Create it from the template:

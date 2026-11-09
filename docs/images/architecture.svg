@@ -1,0 +1,256 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1110" width="1400" height="1110" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#c2410c"/>
+    </marker>
+    <marker id="arrR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/>
+    </marker>
+    <style>
+      .title { font-size: 22px; font-weight: 700; fill: #0f172a; }
+      .sub   { font-size: 13px; fill: #475569; }
+      .h     { font-size: 14px; font-weight: 700; fill: #0f172a; }
+      .hs    { font-size: 12.5px; font-weight: 700; fill: #0f172a; }
+      .s     { font-size: 12px; fill: #334155; }
+      .xs    { font-size: 11px; fill: #475569; }
+      .lbl   { font-size: 11px; fill: #334155; font-weight: 600; }
+      .bnd   { font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+      .line  { stroke: #475569; stroke-width: 1.6; fill: none; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="1110" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="40" y="42" class="title">Credora — Personal Banking Intelligence Platform (PBIP)</text>
+  <text x="40" y="64" class="sub">System architecture: microservices behind an nginx gateway, shared PostgreSQL, always-on observability, Jenkins + SonarQube CI/CD</text>
+
+  <!-- Actors -->
+  <rect x="150" y="88" width="300" height="70" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="300" y="114" text-anchor="middle" class="h">Retail Customer</text>
+  <text x="300" y="134" text-anchor="middle" class="s">Web browser · customer portal</text>
+  <text x="300" y="150" text-anchor="middle" class="xs">role CUSTOMER</text>
+
+  <rect x="540" y="88" width="420" height="70" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="750" y="114" text-anchor="middle" class="h">Bank Staff</text>
+  <text x="750" y="134" text-anchor="middle" class="s">Relationship Manager · Fraud Analyst</text>
+  <text x="750" y="150" text-anchor="middle" class="s">Compliance Officer · Administrator</text>
+
+  <!-- Application boundary -->
+  <rect x="20" y="186" width="1360" height="460" rx="14" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.4" stroke-dasharray="7 5"/>
+  <text x="38" y="206" class="bnd" fill="#64748b">DOCKER COMPOSE PROJECT “credora” — APPLICATION + OBSERVABILITY</text>
+
+  <!-- actor arrows -->
+  <line x1="300" y1="158" x2="300" y2="226" class="line" marker-end="url(#arr)"/>
+  <line x1="750" y1="158" x2="750" y2="226" class="line" marker-end="url(#arr)"/>
+  <text x="310" y="180" class="lbl">HTTP :8080 · JWT bearer</text>
+  <text x="760" y="180" class="lbl">HTTP :8080 · JWT bearer</text>
+
+  <!-- Gateway -->
+  <rect x="40" y="228" width="960" height="66" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+  <text x="520" y="254" text-anchor="middle" class="h">API Gateway — nginx 1.27 · :8080 (single public entry point)</text>
+  <text x="520" y="276" text-anchor="middle" class="s">Path-based routing · X-Request-ID correlation · real client IP forwarding · JSON access log · /healthz · Docker DNS discovery</text>
+
+  <!-- Routing arrows -->
+  <line x1="180" y1="294" x2="180" y2="348" class="line" marker-end="url(#arr)"/>
+  <text x="190" y="326" class="lbl">/  (UI)</text>
+  <line x1="515" y1="294" x2="515" y2="348" class="line" marker-end="url(#arr)"/>
+  <text x="525" y="318" class="lbl">/api/v1/analytics | fraud |</text>
+  <text x="525" y="332" class="lbl">compliance /*</text>
+  <line x1="855" y1="294" x2="855" y2="348" class="line" marker-end="url(#arr)"/>
+  <text x="865" y="326" class="lbl">/api/v1/*  (all other)</text>
+
+  <!-- Frontend -->
+  <rect x="40" y="350" width="280" height="262" rx="10" fill="#eef2ff" stroke="#4f46e5" stroke-width="1.6"/>
+  <text x="180" y="376" text-anchor="middle" class="h">frontend</text>
+  <text x="180" y="394" text-anchor="middle" class="xs">Next.js 16 · React 19 · TypeScript · Tailwind 4</text>
+  <rect x="58" y="408" width="244" height="54" rx="7" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="70" y="428" class="hs">Customer portal</text>
+  <text x="70" y="446" class="xs">/login · /register · /portal/[section]</text>
+  <rect x="58" y="472" width="244" height="54" rx="7" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="70" y="492" class="hs">Internal banking workspace</text>
+  <text x="70" y="510" class="xs">/admin/dashboard · customers · analytics …</text>
+  <rect x="58" y="536" width="244" height="58" rx="7" fill="#ffffff" stroke="#a5b4fc"/>
+  <text x="70" y="556" class="hs">Typed API clients</text>
+  <text x="70" y="574" class="xs">lib/customer/api.ts · lib/admin/api.ts</text>
+  <text x="70" y="588" class="xs">NEXT_PUBLIC_API_URL → gateway</text>
+
+  <!-- admin-service -->
+  <rect x="350" y="350" width="330" height="262" rx="10" fill="#faf5ff" stroke="#9333ea" stroke-width="1.6"/>
+  <text x="515" y="376" text-anchor="middle" class="h">admin-service · :8002</text>
+  <text x="515" y="394" text-anchor="middle" class="xs">FastAPI · Python 3.12 · entry app/admin_main.py</text>
+  <rect x="368" y="406" width="294" height="44" rx="6" fill="#ffffff" stroke="#d8b4fe"/>
+  <text x="380" y="424" class="hs">API routers (RBAC: staff roles)</text>
+  <text x="380" y="441" class="xs">analytics · fraud · compliance · auth/me/health</text>
+  <rect x="368" y="456" width="294" height="44" rx="6" fill="#ffffff" stroke="#d8b4fe"/>
+  <text x="380" y="474" class="hs">Domain services</text>
+  <text x="380" y="491" class="xs">fraud · compliance · security · audit</text>
+  <rect x="368" y="506" width="294" height="44" rx="6" fill="#ffffff" stroke="#d8b4fe"/>
+  <text x="380" y="524" class="hs">Intelligence engine</text>
+  <text x="380" y="541" class="xs">risk &amp; financial-health scoring · behaviour analytics</text>
+  <rect x="368" y="556" width="294" height="40" rx="6" fill="#ffffff" stroke="#d8b4fe"/>
+  <text x="380" y="573" class="hs">Data access</text>
+  <text x="380" y="589" class="xs">SQLAlchemy 2 async ORM · Pydantic v2 schemas</text>
+
+  <!-- customer-service -->
+  <rect x="710" y="350" width="290" height="262" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="1.6"/>
+  <text x="855" y="376" text-anchor="middle" class="h">customer-service · :8001</text>
+  <text x="855" y="394" text-anchor="middle" class="xs">FastAPI · entry app/customer_main.py</text>
+  <rect x="726" y="406" width="258" height="58" rx="6" fill="#ffffff" stroke="#6ee7b7"/>
+  <text x="738" y="424" class="hs">API routers (role CUSTOMER)</text>
+  <text x="738" y="440" class="xs">auth · me · customers · accounts · payees</text>
+  <text x="738" y="455" class="xs">transfers · bills · loans · investments …</text>
+  <rect x="726" y="470" width="258" height="44" rx="6" fill="#ffffff" stroke="#6ee7b7"/>
+  <text x="738" y="488" class="hs">Domain services</text>
+  <text x="738" y="505" class="xs">payment · loan · investment · payee · auth</text>
+  <rect x="726" y="520" width="258" height="44" rx="6" fill="#ffffff" stroke="#6ee7b7"/>
+  <text x="738" y="538" class="hs">AI assistant  (POST /ai/chat)</text>
+  <text x="738" y="555" class="xs">intent → banking tool → LLM phrasing</text>
+  <rect x="726" y="570" width="258" height="30" rx="6" fill="#ffffff" stroke="#6ee7b7"/>
+  <text x="738" y="590" class="xs">SQLAlchemy 2 async ORM · Pydantic v2</text>
+
+  <!-- Observability -->
+  <rect x="1040" y="228" width="320" height="384" rx="10" fill="#fff7ed" stroke="#ea580c" stroke-width="1.6"/>
+  <text x="1200" y="252" text-anchor="middle" class="h">Observability stack</text>
+  <rect x="1060" y="266" width="280" height="62" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1200" y="290" text-anchor="middle" class="hs">Grafana · :3001</text>
+  <text x="1200" y="308" text-anchor="middle" class="xs">5 provisioned dashboards · alert panels</text>
+  <rect x="1060" y="378" width="130" height="62" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1125" y="402" text-anchor="middle" class="hs">Prometheus</text>
+  <text x="1125" y="420" text-anchor="middle" class="xs">:9090 · metrics</text>
+  <text x="1125" y="433" text-anchor="middle" class="xs">+ alert rules</text>
+  <rect x="1210" y="378" width="130" height="62" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1275" y="402" text-anchor="middle" class="hs">Loki</text>
+  <text x="1275" y="420" text-anchor="middle" class="xs">:3100 · log store</text>
+  <text x="1275" y="433" text-anchor="middle" class="xs">LogQL</text>
+  <rect x="1060" y="490" width="130" height="62" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1125" y="514" text-anchor="middle" class="hs">nginx-exporter</text>
+  <text x="1125" y="532" text-anchor="middle" class="xs">:9113 · gateway</text>
+  <text x="1125" y="545" text-anchor="middle" class="xs">stub_status</text>
+  <rect x="1210" y="490" width="130" height="62" rx="7" fill="#ffffff" stroke="#fdba74"/>
+  <text x="1275" y="514" text-anchor="middle" class="hs">Grafana Alloy</text>
+  <text x="1275" y="532" text-anchor="middle" class="xs">:12345 · tails</text>
+  <text x="1275" y="545" text-anchor="middle" class="xs">container stdout</text>
+  <line x1="1125" y1="378" x2="1125" y2="330" stroke="#c2410c" stroke-width="1.5" marker-end="url(#arrO)"/>
+  <line x1="1275" y1="378" x2="1275" y2="330" stroke="#c2410c" stroke-width="1.5" marker-end="url(#arrO)"/>
+  <line x1="1125" y1="490" x2="1125" y2="442" stroke="#c2410c" stroke-width="1.5" marker-end="url(#arrO)"/>
+  <line x1="1275" y1="490" x2="1275" y2="442" stroke="#c2410c" stroke-width="1.5" marker-end="url(#arrO)"/>
+  <text x="1200" y="578" text-anchor="middle" class="xs">Scrapes /metrics of both services, exporter,</text>
+  <text x="1200" y="593" text-anchor="middle" class="xs">Loki, Alloy, Grafana and Jenkins every 15 s</text>
+
+  <!-- service -> observability -->
+  <line x1="1000" y1="470" x2="1038" y2="470" stroke="#c2410c" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrO)"/>
+
+  <!-- External tier -->
+  <text x="40" y="676" class="bnd" fill="#64748b">MANAGED / EXTERNAL SERVICES</text>
+
+  <!-- service -> DB / LLM arrows -->
+  <line x1="515" y1="612" x2="515" y2="688" class="line" marker-end="url(#arr)"/>
+  <line x1="740" y1="612" x2="740" y2="688" class="line" marker-end="url(#arr)"/>
+  <text x="525" y="660" class="lbl">asyncpg (pooler)</text>
+  <line x1="915" y1="612" x2="915" y2="688" class="line" marker-end="url(#arr)"/>
+  <text x="925" y="676" class="lbl">HTTPS</text>
+
+  <rect x="40" y="690" width="760" height="120" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="1.6"/>
+  <text x="60" y="716" class="h">Supabase PostgreSQL — single shared “public” schema (24 tables)</text>
+  <text x="60" y="736" class="s">Alembic migrations (schema source of truth) · seed job: demo users, products, billers + synthetic data generator</text>
+  <g font-size="11.5" font-weight="600" fill="#92400e">
+    <rect x="60" y="754" width="92" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="106" y="770" text-anchor="middle">Identity</text><text x="106" y="785" text-anchor="middle" font-weight="400" font-size="10">users, customers</text>
+    <rect x="160" y="754" width="92" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="206" y="770" text-anchor="middle">Banking</text><text x="206" y="785" text-anchor="middle" font-weight="400" font-size="10">accounts, txns …</text>
+    <rect x="260" y="754" width="92" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="306" y="770" text-anchor="middle">Products</text><text x="306" y="785" text-anchor="middle" font-weight="400" font-size="10">loans, invest …</text>
+    <rect x="360" y="754" width="100" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="410" y="770" text-anchor="middle">Intelligence</text><text x="410" y="785" text-anchor="middle" font-weight="400" font-size="10">behaviour, risk</text>
+    <rect x="468" y="754" width="92" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="514" y="770" text-anchor="middle">Fraud</text><text x="514" y="785" text-anchor="middle" font-weight="400" font-size="10">events, alerts</text>
+    <rect x="568" y="754" width="104" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="620" y="770" text-anchor="middle">Platform</text><text x="620" y="785" text-anchor="middle" font-weight="400" font-size="10">audit, security</text>
+    <rect x="680" y="754" width="100" height="38" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+    <text x="730" y="770" text-anchor="middle">AI</text><text x="730" y="785" text-anchor="middle" font-weight="400" font-size="10">conversations</text>
+  </g>
+
+  <rect x="830" y="690" width="170" height="120" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="1.6"/>
+  <text x="915" y="716" text-anchor="middle" class="h">Groq LLM API</text>
+  <text x="915" y="738" text-anchor="middle" class="xs">llama-3.3-70b-versatile</text>
+  <text x="915" y="756" text-anchor="middle" class="xs">phrases answers from</text>
+  <text x="915" y="770" text-anchor="middle" class="xs">tool results only — no</text>
+  <text x="915" y="784" text-anchor="middle" class="xs">direct database access</text>
+
+  <!-- Deploy path from CI to app boundary -->
+  <polyline points="660,912 660,840 1200,840 1200,650" fill="none" stroke="#b91c1c" stroke-width="1.8" marker-end="url(#arrR)"/>
+  <text x="1212" y="730" class="lbl" fill="#b91c1c">docker compose build</text>
+  <text x="1212" y="745" class="lbl" fill="#b91c1c">up --wait · run seed</text>
+  <text x="1212" y="760" class="xs" fill="#b91c1c">(host Docker socket)</text>
+
+  <!-- CI boundary -->
+  <rect x="240" y="880" width="1140" height="150" rx="14" fill="#fef2f2" stroke="#f87171" stroke-width="1.4" stroke-dasharray="7 5"/>
+  <text x="258" y="900" class="bnd" fill="#b91c1c">DOCKER COMPOSE PROJECT “credora-ci” — CI/CD</text>
+
+  <rect x="40" y="910" width="170" height="100" rx="10" fill="#f1f5f9" stroke="#334155" stroke-width="1.6"/>
+  <text x="125" y="938" text-anchor="middle" class="h">GitHub</text>
+  <text x="125" y="958" text-anchor="middle" class="xs">AtharvaDeokar21/PBIP</text>
+  <text x="125" y="974" text-anchor="middle" class="xs">branch main</text>
+  <text x="125" y="990" text-anchor="middle" class="xs">PRs + peer review</text>
+
+  <line x1="210" y1="960" x2="268" y2="960" class="line" marker-end="url(#arr)"/>
+  <text x="213" y="950" class="xs" font-size="10">poll 2 min</text>
+
+  <rect x="270" y="912" width="420" height="104" rx="10" fill="#ffffff" stroke="#dc2626" stroke-width="1.6"/>
+  <text x="290" y="934" class="h">Jenkins · :8081</text>
+  <text x="410" y="934" class="xs">Jenkinsfile (pipeline as code) · JCasC</text>
+  <g font-size="10.5" fill="#7f1d1d" font-weight="600">
+    <rect x="288" y="946" width="94" height="26" rx="5" fill="#fee2e2"/><text x="335" y="963" text-anchor="middle">Checkout</text>
+    <rect x="388" y="946" width="94" height="26" rx="5" fill="#fee2e2"/><text x="435" y="963" text-anchor="middle">Prepare</text>
+    <rect x="488" y="946" width="94" height="26" rx="5" fill="#fee2e2"/><text x="535" y="963" text-anchor="middle">Parallel tests</text>
+    <rect x="588" y="946" width="94" height="26" rx="5" fill="#fee2e2"/><text x="635" y="963" text-anchor="middle">Sonar scan</text>
+    <rect x="288" y="980" width="94" height="26" rx="5" fill="#fee2e2"/><text x="335" y="997" text-anchor="middle">Quality gate</text>
+    <rect x="388" y="980" width="94" height="26" rx="5" fill="#fee2e2"/><text x="435" y="997" text-anchor="middle">Build images</text>
+    <rect x="488" y="980" width="94" height="26" rx="5" fill="#fee2e2"/><text x="535" y="997" text-anchor="middle">Deploy</text>
+    <rect x="588" y="980" width="94" height="26" rx="5" fill="#fee2e2"/><text x="635" y="997" text-anchor="middle">Seed DB</text>
+  </g>
+
+  <line x1="690" y1="944" x2="788" y2="944" class="line" marker-end="url(#arr)"/>
+  <text x="698" y="936" class="xs" font-size="10">scan + reports</text>
+  <line x1="790" y1="990" x2="692" y2="990" class="line" marker-end="url(#arr)"/>
+  <text x="698" y="1006" class="xs" font-size="10">gate webhook</text>
+
+  <rect x="790" y="912" width="220" height="104" rx="10" fill="#ffffff" stroke="#dc2626" stroke-width="1.6"/>
+  <text x="900" y="936" text-anchor="middle" class="h">SonarQube · :9000</text>
+  <text x="900" y="956" text-anchor="middle" class="xs">project “credora” · Sonar way gate</text>
+  <text x="900" y="972" text-anchor="middle" class="xs">bugs · vulnerabilities · smells</text>
+  <text x="900" y="988" text-anchor="middle" class="xs">coverage · duplication</text>
+  <text x="900" y="1004" text-anchor="middle" class="xs">Python + TypeScript</text>
+
+  <line x1="1060" y1="964" x2="1012" y2="964" class="line" marker-end="url(#arr)"/>
+  <rect x="1060" y="912" width="120" height="104" rx="10" fill="#ffffff" stroke="#dc2626" stroke-width="1.6"/>
+  <text x="1120" y="936" text-anchor="middle" class="hs">sonar-init</text>
+  <text x="1120" y="955" text-anchor="middle" class="xs">one-shot job:</text>
+  <text x="1120" y="970" text-anchor="middle" class="xs">password, project,</text>
+  <text x="1120" y="985" text-anchor="middle" class="xs">gate, webhook,</text>
+  <text x="1120" y="1000" text-anchor="middle" class="xs">token → Jenkins</text>
+
+  <rect x="1210" y="912" width="150" height="104" rx="10" fill="#ffffff" stroke="#dc2626" stroke-width="1.6"/>
+  <text x="1285" y="936" text-anchor="middle" class="hs">Root .env</text>
+  <text x="1285" y="955" text-anchor="middle" class="xs">single config source</text>
+  <text x="1285" y="970" text-anchor="middle" class="xs">→ Jenkins credential</text>
+  <text x="1285" y="985" text-anchor="middle" class="xs">credora-env</text>
+  <text x="1285" y="1000" text-anchor="middle" class="xs">(never committed)</text>
+
+  <!-- Legend -->
+  <g font-size="11.5" fill="#334155">
+    <rect x="40" y="1058" width="14" height="14" rx="3" fill="#eff6ff" stroke="#2563eb"/><text x="60" y="1070">Users</text>
+    <rect x="120" y="1058" width="14" height="14" rx="3" fill="#f1f5f9" stroke="#334155"/><text x="140" y="1070">Edge / external</text>
+    <rect x="250" y="1058" width="14" height="14" rx="3" fill="#eef2ff" stroke="#4f46e5"/><text x="270" y="1070">Frontend</text>
+    <rect x="345" y="1058" width="14" height="14" rx="3" fill="#faf5ff" stroke="#9333ea"/><text x="365" y="1070">Internal (staff) service</text>
+    <rect x="515" y="1058" width="14" height="14" rx="3" fill="#ecfdf5" stroke="#059669"/><text x="535" y="1070">Customer service</text>
+    <rect x="655" y="1058" width="14" height="14" rx="3" fill="#fffbeb" stroke="#d97706"/><text x="675" y="1070">Data</text>
+    <rect x="725" y="1058" width="14" height="14" rx="3" fill="#fff7ed" stroke="#ea580c"/><text x="745" y="1070">Observability</text>
+    <rect x="850" y="1058" width="14" height="14" rx="3" fill="#fef2f2" stroke="#dc2626"/><text x="870" y="1070">CI/CD</text>
+    <text x="40" y="1094" fill="#64748b">Both FastAPI services are built from one codebase (backend/app) and one image; a shared app factory adds CORS, error handlers, JSON logging, Prometheus metrics, JWT validation and role checks.</text>
+  </g>
+</svg>

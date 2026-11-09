@@ -1,0 +1,191 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 560" width="1400" height="560" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#b91c1c"/>
+    </marker>
+    <style>
+      .title { font-size: 22px; font-weight: 700; fill: #0f172a; }
+      .sub   { font-size: 13px; fill: #475569; }
+      .n     { font-size: 10.5px; font-weight: 700; fill: #ffffff; letter-spacing: .05em; }
+      .hd    { font-size: 13px; font-weight: 700; fill: #0f172a; }
+      .d     { font-size: 11px; fill: #334155; }
+      .m     { font-size: 10.5px; fill: #64748b; font-family: Consolas, Menlo, monospace; }
+      .t     { font-size: 10.5px; font-weight: 600; fill: #15803d; }
+      .ln    { stroke: #475569; stroke-width: 1.6; fill: none; }
+      .lane  { font-size: 12px; font-weight: 700; letter-spacing: .04em; fill: #64748b; }
+    </style>
+  </defs>
+  <rect width="1400" height="560" fill="#ffffff"/>
+  <text x="35" y="40" class="title">Credora CI/CD pipeline — Jenkins declarative pipeline (Jenkinsfile)</text>
+  <text x="35" y="62" class="sub">Every push to main is picked up by SCM polling; a failed SonarQube quality gate aborts the run before anything is built or deployed.</text>
+
+  <text x="35" y="96" class="lane">CONTINUOUS INTEGRATION</text><text x="485" y="96" class="lane" fill="#7c3aed">3a + 3b RUN IN PARALLEL</text>
+  <text x="935" y="96" class="lane">CONTINUOUS DELIVERY</text>
+  <line x1="925" y1="84" x2="925" y2="310" stroke="#cbd5e1" stroke-dasharray="4 4"/>
+
+  <!-- 0 Trigger -->
+  <rect x="35" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#334155" stroke-width="1.4"/>
+  <rect x="35" y="110" width="130" height="24" rx="9" fill="#334155"/><rect x="35" y="124" width="130" height="10" fill="#334155"/>
+  <text x="100" y="127" text-anchor="middle" class="n">TRIGGER</text>
+  <text x="47" y="156" class="hd">GitHub main</text>
+  <text x="47" y="176" class="d">SCM poll every</text>
+  <text x="47" y="191" class="d">2 minutes</text>
+  <text x="47" y="211" class="d">or “Build with</text>
+  <text x="47" y="226" class="d">Parameters”</text>
+  <text x="47" y="250" class="m">SEED_DB=true</text>
+  <text x="47" y="276" class="m">serialised builds</text>
+
+  <!-- 1 Checkout -->
+  <rect x="185" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#2563eb" stroke-width="1.4"/>
+  <rect x="185" y="110" width="130" height="24" rx="9" fill="#2563eb"/><rect x="185" y="124" width="130" height="10" fill="#2563eb"/>
+  <text x="250" y="127" text-anchor="middle" class="n">STAGE 1</text>
+  <text x="197" y="156" class="hd">Checkout</text>
+  <text x="197" y="176" class="d">Clean workspace,</text>
+  <text x="197" y="191" class="d">check out commit</text>
+  <text x="197" y="211" class="d">Image tag =</text>
+  <text x="197" y="226" class="m">BUILD-shortSHA</text>
+  <text x="197" y="276" class="t">#4: 1 s</text>
+
+  <!-- 2 Prepare -->
+  <rect x="335" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#2563eb" stroke-width="1.4"/>
+  <rect x="335" y="110" width="130" height="24" rx="9" fill="#2563eb"/><rect x="335" y="124" width="130" height="10" fill="#2563eb"/>
+  <text x="400" y="127" text-anchor="middle" class="n">STAGE 2</text>
+  <text x="347" y="156" class="hd">Prepare</text>
+  <text x="347" y="176" class="d">Write .env from</text>
+  <text x="347" y="191" class="d">Jenkins credential</text>
+  <text x="347" y="206" class="m">credora-env</text>
+  <text x="347" y="226" class="d">Validate compose</text>
+  <text x="347" y="241" class="d">files</text>
+  <text x="347" y="276" class="t">#4: 0.8 s</text>
+
+  <!-- 3 Test (parallel) -->
+  <rect x="485" y="110" width="130" height="86" rx="9" fill="#f8fafc" stroke="#7c3aed" stroke-width="1.4"/>
+  <rect x="485" y="110" width="130" height="22" rx="9" fill="#7c3aed"/><rect x="485" y="122" width="130" height="10" fill="#7c3aed"/>
+  <text x="550" y="125" text-anchor="middle" class="n">STAGE 3a</text>
+  <text x="495" y="148" class="hd">Backend tests</text>
+  <text x="495" y="163" class="m">python:3.12-slim</text>
+  <text x="495" y="177" class="d">Ruff · pytest · cov</text>
+  <text x="495" y="191" class="t">#4: 1 min 56 s</text>
+  <rect x="485" y="204" width="130" height="86" rx="9" fill="#f8fafc" stroke="#7c3aed" stroke-width="1.4"/>
+  <rect x="485" y="204" width="130" height="22" rx="9" fill="#7c3aed"/><rect x="485" y="216" width="130" height="10" fill="#7c3aed"/>
+  <text x="550" y="219" text-anchor="middle" class="n">STAGE 3b</text>
+  <text x="495" y="242" class="hd">Frontend checks</text>
+  <text x="495" y="257" class="m">node:22-slim</text>
+  <text x="495" y="271" class="d">npm ci · tsc</text>
+  <text x="495" y="285" class="t">#4: 22 s</text>
+
+  <!-- 4 Sonar -->
+  <rect x="635" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#0891b2" stroke-width="1.4"/>
+  <rect x="635" y="110" width="130" height="24" rx="9" fill="#0891b2"/><rect x="635" y="124" width="130" height="10" fill="#0891b2"/>
+  <text x="700" y="127" text-anchor="middle" class="n">STAGE 4</text>
+  <text x="647" y="156" class="hd">SonarQube scan</text>
+  <text x="647" y="174" class="m">sonar-scanner 11.4</text>
+  <text x="647" y="194" class="d">Python + TS/JS</text>
+  <text x="647" y="209" class="d">Imports coverage,</text>
+  <text x="647" y="224" class="d">JUnit and Ruff</text>
+  <text x="647" y="239" class="d">reports</text>
+  <text x="647" y="276" class="t">#4: 3 min 47 s</text>
+
+  <!-- 5 Gate -->
+  <rect x="785" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#0891b2" stroke-width="1.4"/>
+  <rect x="785" y="110" width="130" height="24" rx="9" fill="#0891b2"/><rect x="785" y="124" width="130" height="10" fill="#0891b2"/>
+  <text x="850" y="127" text-anchor="middle" class="n">STAGE 5</text>
+  <text x="797" y="156" class="hd">Quality gate</text>
+  <text x="797" y="174" class="m">waitForQualityGate</text>
+  <text x="797" y="194" class="d">“Sonar way” gate</text>
+  <text x="797" y="209" class="d">Result arrives via</text>
+  <text x="797" y="224" class="d">webhook (≤10 min)</text>
+  <text x="797" y="244" class="d" font-weight="700" fill="#b91c1c">Fail → abort</text>
+  <text x="797" y="276" class="t">#4: 0.3 s</text>
+
+  <!-- 6 Build -->
+  <rect x="935" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#16a34a" stroke-width="1.4"/>
+  <rect x="935" y="110" width="130" height="24" rx="9" fill="#16a34a"/><rect x="935" y="124" width="130" height="10" fill="#16a34a"/>
+  <text x="1000" y="127" text-anchor="middle" class="n">STAGE 6</text>
+  <text x="947" y="156" class="hd">Build images</text>
+  <text x="947" y="174" class="m">compose build</text>
+  <text x="947" y="194" class="d">gateway, frontend,</text>
+  <text x="947" y="209" class="d">backend and</text>
+  <text x="947" y="224" class="d">observability</text>
+  <text x="947" y="239" class="d">images, tagged</text>
+  <text x="947" y="276" class="t">#4: 2 min 47 s</text>
+
+  <!-- 7 Deploy -->
+  <rect x="1085" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#16a34a" stroke-width="1.4"/>
+  <rect x="1085" y="110" width="130" height="24" rx="9" fill="#16a34a"/><rect x="1085" y="124" width="130" height="10" fill="#16a34a"/>
+  <text x="1150" y="127" text-anchor="middle" class="n">STAGE 7</text>
+  <text x="1097" y="156" class="hd">Deploy</text>
+  <text x="1097" y="174" class="m">compose up -d</text>
+  <text x="1097" y="188" class="m">--wait (300 s)</text>
+  <text x="1097" y="208" class="d">Succeeds only when</text>
+  <text x="1097" y="223" class="d">every container’s</text>
+  <text x="1097" y="238" class="d">health check passes</text>
+  <text x="1097" y="276" class="t">#4: 36 s</text>
+
+  <!-- 8 Seed -->
+  <rect x="1235" y="110" width="130" height="180" rx="9" fill="#f8fafc" stroke="#16a34a" stroke-width="1.4"/>
+  <rect x="1235" y="110" width="130" height="24" rx="9" fill="#16a34a"/><rect x="1235" y="124" width="130" height="10" fill="#16a34a"/>
+  <text x="1300" y="127" text-anchor="middle" class="n">STAGE 8</text>
+  <text x="1247" y="156" class="hd">Seed database</text>
+  <text x="1247" y="174" class="m">when SEED_DB</text>
+  <text x="1247" y="194" class="d">alembic upgrade</text>
+  <text x="1247" y="209" class="d">heads → demo seed</text>
+  <text x="1247" y="224" class="d">→ synthetic data</text>
+  <text x="1247" y="239" class="d">(idempotent)</text>
+  <text x="1247" y="276" class="t">#4: 3 min 6 s</text>
+
+  <!-- connectors -->
+  <line x1="165" y1="200" x2="183" y2="200" class="ln" marker-end="url(#a)"/>
+  <line x1="315" y1="200" x2="333" y2="200" class="ln" marker-end="url(#a)"/>
+  <polyline points="465,200 475,200 475,153 483,153" class="ln" marker-end="url(#a)"/>
+  <polyline points="475,200 475,247 483,247" class="ln" marker-end="url(#a)"/>
+  <polyline points="615,153 625,153 625,200 633,200" class="ln" marker-end="url(#a)"/>
+  <polyline points="615,247 625,247 625,200" class="ln"/>
+  <line x1="765" y1="200" x2="783" y2="200" class="ln" marker-end="url(#a)"/>
+  <line x1="915" y1="200" x2="933" y2="200" class="ln" marker-end="url(#a)"/>
+  <line x1="1065" y1="200" x2="1083" y2="200" class="ln" marker-end="url(#a)"/>
+  <line x1="1215" y1="200" x2="1233" y2="200" class="ln" marker-end="url(#a)"/>
+
+  <!-- Reports -->
+  <line x1="550" y1="290" x2="550" y2="348" class="ln" marker-end="url(#a)"/>
+  <rect x="435" y="350" width="330" height="96" rx="9" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.3"/>
+  <text x="450" y="373" class="hd">Test &amp; quality reports</text>
+  <text x="450" y="393" class="m">backend/reports/junit.xml</text>
+  <text x="450" y="409" class="m">backend/reports/coverage.xml (Cobertura)</text>
+  <text x="450" y="425" class="m">backend/reports/ruff.json</text>
+  <text x="450" y="440" class="d">→ Jenkins JUnit + Coverage plugins, SonarQube</text>
+  <polyline points="700,350 700,290" class="ln" marker-end="url(#a)"/>
+
+  <!-- Gate failure -->
+  <line x1="850" y1="290" x2="850" y2="348" stroke="#b91c1c" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+  <rect x="785" y="350" width="280" height="96" rx="9" fill="#fef2f2" stroke="#dc2626" stroke-width="1.3"/>
+  <text x="800" y="373" class="hd" fill="#991b1b">Gate failed → pipeline aborted</text>
+  <text x="800" y="393" class="d">No images are built and the running</text>
+  <text x="800" y="408" class="d">stack is left untouched. A failing test</text>
+  <text x="800" y="423" class="d">stage also stops the run (builds #1–#3</text>
+  <text x="800" y="438" class="d">stopped at “Backend tests”).</text>
+
+  <!-- Post -->
+  <rect x="1085" y="350" width="280" height="96" rx="9" fill="#f8fafc" stroke="#334155" stroke-width="1.3"/>
+  <text x="1100" y="373" class="hd">post { }  — always runs</text>
+  <text x="1100" y="393" class="d">always: archive backend/reports/**</text>
+  <text x="1100" y="408" class="d">failure: compose ps + last 200 log</text>
+  <text x="1100" y="423" class="d">lines of every service</text>
+  <text x="1100" y="438" class="d">cleanup: cleanWs()</text>
+
+  <!-- Provisioning strip -->
+  <rect x="35" y="350" width="380" height="96" rx="9" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.3"/>
+  <text x="50" y="373" class="hd">Zero-touch provisioning</text>
+  <text x="50" y="393" class="d">sonar-init: admin password, project, quality gate,</text>
+  <text x="50" y="408" class="d">new-code definition, webhook, analysis token</text>
+  <text x="50" y="423" class="d">Jenkins JCasC: admin user, credentials, Sonar</text>
+  <text x="50" y="438" class="d">server and the “credora” job — no setup wizard</text>
+
+  <!-- footer -->
+  <text x="35" y="482" class="sub">Pipeline options: timestamps · 60-minute timeout · keep last 20 builds · tool containers share the Jenkins workspace (--volumes-from) and drive the host Docker engine.</text>
+  <text x="35" y="504" class="sub">Stage durations shown in green are from successful build #4 (commit 05a599d, total run ≈ 12 min 39 s average).</text>
+  <text x="35" y="526" class="sub">Caches: named Docker volumes credora-ci-pip-cache and credora-ci-npm-cache speed up dependency installation between runs.</text>
+</svg>
