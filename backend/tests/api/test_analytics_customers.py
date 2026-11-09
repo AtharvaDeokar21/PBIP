@@ -3,10 +3,11 @@ from datetime import datetime, timezone
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.core.database import get_db
 from app.main import app
+from app.models.banking import Transaction
 from app.models.fraud import FraudAlert, FraudEvent
 from app.models.identity import Customer, User
 from app.models.intelligence import BehaviourEvent, CustomerRiskProfile
@@ -198,7 +199,7 @@ async def test_behaviour_risk_is_null_without_profile(admin_client, session_fact
 
 @pytest.mark.asyncio
 async def test_customer_overview_financial_insights_use_latest_four_months(
-    admin_client, seed
+    admin_client, seed, session_factory
 ):
     response = await admin_client.get("/api/v1/analytics/overview")
 
@@ -214,4 +215,12 @@ async def test_customer_overview_financial_insights_use_latest_four_months(
     assert sum(item["amount"] for item in customer["spendingInsights"]) == pytest.approx(
         sum(item["amount"] for item in customer["monthlySpendingTrend"])
     )
-    assert customer["monthlySpendingTrend"][-1]["month"] == "Oct"
+    # The generator dates transactions relative to "now", so the latest month
+    # is the month of the customer's most recent transaction, not a fixed one.
+    async with session_factory() as db:
+        latest_transaction = await db.scalar(
+            select(func.max(Transaction.transaction_date)).where(
+                Transaction.account_id.in_([account.id for account in seed.accounts])
+            )
+        )
+    assert customer["monthlySpendingTrend"][-1]["month"] == latest_transaction.strftime("%b")
