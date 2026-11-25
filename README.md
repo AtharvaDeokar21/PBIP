@@ -45,7 +45,7 @@ Gateway routing (`gateway/nginx.conf`): `/api/v1/analytics|fraud|compliance/*` â
 
 Architecture details and the API-to-service mapping: [docs/architecture/MICROSERVICES_MIGRATION_PLAN.md](docs/architecture/MICROSERVICES_MIGRATION_PLAN.md). CI/CD and observability design: [docs/architecture/CICD_OBSERVABILITY_PLAN.md](docs/architecture/CICD_OBSERVABILITY_PLAN.md).
 
-**Full project documentation** (architecture diagram, tools and technologies, functional and non-functional requirements, coverage metrics, CI/CD walkthrough with screenshots): [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md).
+**Full project documentation:** [docs/Credora_PBIP_Project_Documentation.pdf](docs/Credora_PBIP_Project_Documentation.pdf) (Word: [.docx](docs/Credora_PBIP_Project_Documentation.docx)) â€” use case document, SRS, user stories, HLD, LLD, ER diagram, API specification, testing and coverage, CI/CD, deployment guide, support guide and user manual. Markdown overview: [docs/PROJECT_DOCUMENTATION.md](docs/PROJECT_DOCUMENTATION.md).
 
 ## Configuration
 

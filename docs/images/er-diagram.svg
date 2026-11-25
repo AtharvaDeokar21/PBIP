@@ -1,0 +1,424 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2010 1500" width="2010" height="1500" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<style>
+.tn{font-size:13px;font-weight:700;fill:#fff}
+.c{font-size:11.5px;fill:#1e293b}
+.k{font-size:9.5px;font-weight:700}
+.ln{fill:none;stroke:#64748b;stroke-width:1.3}
+.mk{fill:none;stroke:#334155;stroke-width:1.3}
+.lb{font-size:10.5px;fill:#475569;font-weight:600}
+</style>
+<rect width="2010" height="1500" fill="#ffffff"/>
+<text x="30" y="36" font-size="22" font-weight="700" fill="#0f172a">Credora — Entity Relationship Diagram (24 tables, PostgreSQL “public” schema)</text>
+<polyline points="260,123.5 300,123.5" class="ln"/>
+<path d="M260,117.5 L272,123.5 L260,129.5 M276,117.5 L276,129.5" class="mk"/>
+<path d="M292,117.5 L292,129.5 M287,117.5 L287,129.5" class="mk"/>
+<polyline points="530,123.5 820,123.5 820,106.5 860,106.5" class="ln"/>
+<path d="M530,117.5 L542,123.5 L530,129.5 M546,117.5 L546,129.5" class="mk"/>
+<path d="M852,100.5 L852,112.5 M847,100.5 L847,112.5" class="mk"/>
+<polyline points="415.0,300 415.0,255 800,255 800,114.5 860,114.5" class="ln"/>
+<path d="M409.0,300 L415.0,288 L421.0,300 M409.0,284 L421.0,284" class="mk"/>
+<path d="M852,108.5 L852,120.5 M847,108.5 L847,120.5" class="mk"/>
+<polyline points="695.0,300 695.0,265 810,265 810,122.5 860,122.5" class="ln"/>
+<path d="M689.0,300 L695.0,288 L701.0,300 M689.0,284 L701.0,284" class="mk"/>
+<path d="M852,116.5 L852,128.5 M847,116.5 L847,128.5" class="mk"/>
+<polyline points="1255.0,300 1255.0,255 1110,255 1110,106.5 1090,106.5" class="ln"/>
+<path d="M1249.0,300 L1255.0,288 L1261.0,300 M1249.0,284 L1261.0,284" class="mk"/>
+<path d="M1098,100.5 L1098,112.5 M1103,100.5 L1103,112.5" class="mk"/>
+<polyline points="1420,140.5 1120,140.5 1120,116.5 1090,116.5" class="ln"/>
+<path d="M1420,134.5 L1408,140.5 L1420,146.5 M1404,134.5 L1404,146.5" class="mk"/>
+<path d="M1098,110.5 L1098,122.5 M1103,110.5 L1103,122.5" class="mk"/>
+<polyline points="1775.0,221 1775.0,290 1400,290 1400,126.5 1090,126.5" class="ln"/>
+<path d="M1769.0,221 L1775.0,233 L1781.0,221 M1769.0,237 L1781.0,237" class="mk"/>
+<path d="M1098,120.5 L1098,132.5 M1103,120.5 L1103,132.5" class="mk"/>
+<polyline points="975.0,560 975.0,221" class="ln"/>
+<path d="M969.0,560 L975.0,548 L981.0,560 M969.0,544 L981.0,544" class="mk"/>
+<path d="M969.0,229 L981.0,229 M969.0,234 L981.0,234" class="mk"/>
+<text x="981.0" y="386.5" class="lb">1 : 1</text>
+<polyline points="1650,123.5 1720,123.5" class="ln"/>
+<path d="M1650,117.5 L1662,123.5 L1650,129.5 M1666,117.5 L1666,129.5" class="mk"/>
+<path d="M1712,117.5 L1712,129.5 M1707,117.5 L1707,129.5" class="mk"/>
+<polyline points="1875.0,221 1875.0,370" class="ln"/>
+<path d="M1869.0,221 L1875.0,233 L1881.0,221 M1869.0,237 L1881.0,237" class="mk"/>
+<path d="M1869.0,362 L1881.0,362 M1869.0,357 L1881.0,357" class="mk"/>
+<polyline points="670,596.5 860,596.5" class="ln"/>
+<path d="M670,590.5 L682,596.5 L670,602.5 M686,590.5 L686,602.5" class="mk"/>
+<path d="M852,590.5 L852,602.5 M847,590.5 L847,602.5" class="mk"/>
+<text x="771.0" y="592.5" class="lb">1 : 1</text>
+<polyline points="260,613.5 410,613.5 410,540 840,540 840,608.5 860,608.5" class="ln"/>
+<path d="M260,607.5 L272,613.5 L260,619.5 M276,607.5 L276,619.5" class="mk"/>
+<path d="M852,602.5 L852,614.5 M847,602.5 L847,614.5" class="mk"/>
+<polyline points="670,818.5 840,818.5 840,620.5 860,620.5" class="ln"/>
+<path d="M670,812.5 L682,818.5 L670,824.5 M686,812.5 L686,824.5" class="mk"/>
+<path d="M852,614.5 L852,626.5 M847,614.5 L847,626.5" class="mk"/>
+<polyline points="975.0,900 975.0,745" class="ln"/>
+<path d="M969.0,900 L975.0,888 L981.0,900 M969.0,884 L981.0,884" class="mk"/>
+<path d="M969.0,753 L981.0,753 M969.0,758 L981.0,758" class="mk"/>
+<polyline points="670,1213.5 830,1213.5 830,632.5 860,632.5" class="ln"/>
+<path d="M670,1207.5 L682,1213.5 L670,1219.5 M686,1207.5 L686,1219.5" class="mk"/>
+<path d="M852,626.5 L852,638.5 M847,626.5 L847,638.5" class="mk"/>
+<polyline points="1280,613.5 1090,613.5" class="ln"/>
+<path d="M1280,607.5 L1268,613.5 L1280,619.5 M1264,607.5 L1264,619.5" class="mk"/>
+<path d="M1098,607.5 L1098,619.5 M1103,607.5 L1103,619.5" class="mk"/>
+<polyline points="1280,933.5 1120,933.5 1120,636.5 1090,636.5" class="ln"/>
+<path d="M1280,927.5 L1268,933.5 L1280,939.5 M1264,927.5 L1264,939.5" class="mk"/>
+<path d="M1098,630.5 L1098,642.5 M1103,630.5 L1103,642.5" class="mk"/>
+<polyline points="1720,423.5 1680,423.5 1680,545 1110,545 1110,616.5 1090,616.5" class="ln"/>
+<path d="M1720,417.5 L1708,423.5 L1720,429.5 M1704,417.5 L1704,429.5" class="mk"/>
+<path d="M1098,610.5 L1098,622.5 M1103,610.5 L1103,622.5" class="mk"/>
+<polyline points="1950,140.5 1975,140.5 1975,553 1130,553 1130,656.5 1090,656.5" class="ln"/>
+<path d="M1950,134.5 L1962,140.5 L1950,146.5 M1966,134.5 L1966,146.5" class="mk"/>
+<path d="M1098,650.5 L1098,662.5 M1103,650.5 L1103,662.5" class="mk"/>
+<polyline points="260,953.5 420,953.5 420,746 850,746 850,644.5 860,644.5" class="ln"/>
+<path d="M260,947.5 L272,953.5 L260,959.5 M276,947.5 L276,959.5" class="mk"/>
+<path d="M852,638.5 L852,650.5 M847,638.5 L847,650.5" class="mk"/>
+<polyline points="915.0,1250 915.0,1215 845,1215 845,656.5 860,656.5" class="ln"/>
+<path d="M909.0,1250 L915.0,1238 L921.0,1250 M909.0,1234 L921.0,1234" class="mk"/>
+<path d="M852,650.5 L852,662.5 M847,650.5 L847,662.5" class="mk"/>
+<polyline points="1510,630.5 1690,630.5 1690,696.5 1720,696.5" class="ln"/>
+<path d="M1510,624.5 L1522,630.5 L1510,636.5 M1526,624.5 L1526,636.5" class="mk"/>
+<path d="M1712,690.5 L1712,702.5 M1707,690.5 L1707,702.5" class="mk"/>
+<polyline points="1510,950.5 1690,950.5 1690,956.5 1720,956.5" class="ln"/>
+<path d="M1510,944.5 L1522,950.5 L1510,956.5 M1526,944.5 L1526,956.5" class="mk"/>
+<path d="M1712,950.5 L1712,962.5 M1707,950.5 L1707,962.5" class="mk"/>
+<polyline points="1280,1213.5 1180,1213.5 1180,936.5 1090,936.5" class="ln"/>
+<path d="M1280,1207.5 L1268,1213.5 L1280,1219.5 M1264,1207.5 L1264,1219.5" class="mk"/>
+<path d="M1098,930.5 L1098,942.5 M1103,930.5 L1103,942.5" class="mk"/>
+<polyline points="975.0,1250 975.0,1068" class="ln"/>
+<path d="M969.0,1250 L975.0,1238 L981.0,1250 M969.0,1234 L981.0,1234" class="mk"/>
+<path d="M969.0,1076 L981.0,1076 M969.0,1081 L981.0,1081" class="mk"/>
+<text x="981.0" y="1155.0" class="lb">source</text>
+<polyline points="1035.0,1250 1035.0,1230 1170,1230 1170,950.5 1090,950.5" class="ln"/>
+<path d="M1029.0,1250 L1035.0,1238 L1041.0,1250 M1029.0,1234 L1041.0,1234" class="mk"/>
+<path d="M1098,944.5 L1098,956.5 M1103,944.5 L1103,956.5" class="mk"/>
+<polyline points="860,1354.5 720,1354.5 720,1196.5 670,1196.5" class="ln"/>
+<path d="M860,1348.5 L848,1354.5 L860,1360.5 M844,1348.5 L844,1360.5" class="mk"/>
+<path d="M678,1190.5 L678,1202.5 M683,1190.5 L683,1202.5" class="mk"/>
+<polyline points="260,970.5 860,970.5" class="ln"/>
+<path d="M260,964.5 L272,970.5 L260,976.5 M276,964.5 L276,976.5" class="mk"/>
+<path d="M852,964.5 L852,976.5 M847,964.5 L847,976.5" class="mk"/>
+<polyline points="145.0,1051 145.0,1250" class="ln"/>
+<path d="M139.0,1051 L145.0,1063 L151.0,1051 M139.0,1067 L151.0,1067" class="mk"/>
+<path d="M139.0,1242 L151.0,1242 M139.0,1237 L151.0,1237" class="mk"/>
+<polyline points="1720,440.5 1620,440.5 1620,1196.5 1510,1196.5" class="ln"/>
+<path d="M1720,434.5 L1708,440.5 L1720,446.5 M1704,434.5 L1704,446.5" class="mk"/>
+<path d="M1518,1190.5 L1518,1202.5 M1523,1190.5 L1523,1202.5" class="mk"/>
+<rect x="860" y="70" width="230" height="151" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.4"/>
+<path d="M860,96 L860,76 Q860,70 866,70 L1084,70 Q1090,70 1090,76 L1090,96 Z" fill="#2563eb"/>
+<text x="870" y="88" class="tn">users</text>
+<text x="868" y="111" class="k" fill="#b45309">PK</text>
+<text x="890" y="111" class="c" font-weight="700">id</text>
+<text x="868" y="128" class="k" fill="#7c3aed">UK</text>
+<text x="890" y="128" class="c">email</text>
+<text x="890" y="145" class="c">password_hash</text>
+<text x="890" y="162" class="c">role</text>
+<text x="890" y="179" class="c">is_active</text>
+<text x="890" y="196" class="c">mfa_enabled</text>
+<text x="890" y="213" class="c">last_login_at</text>
+<rect x="860" y="560" width="230" height="185" rx="6" fill="#eff6ff" stroke="#2563eb" stroke-width="1.4"/>
+<path d="M860,586 L860,566 Q860,560 866,560 L1084,560 Q1090,560 1090,566 L1090,586 Z" fill="#2563eb"/>
+<text x="870" y="578" class="tn">customers</text>
+<text x="868" y="601" class="k" fill="#b45309">PK</text>
+<text x="890" y="601" class="c" font-weight="700">id</text>
+<text x="868" y="618" class="k" fill="#1d4ed8">FK</text>
+<text x="890" y="618" class="c">user_id (UK)</text>
+<text x="868" y="635" class="k" fill="#7c3aed">UK</text>
+<text x="890" y="635" class="c">customer_number</text>
+<text x="890" y="652" class="c">first_name, last_name</text>
+<text x="890" y="669" class="c">date_of_birth, phone</text>
+<text x="890" y="686" class="c">address, city, state</text>
+<text x="890" y="703" class="c">occupation, annual_income</text>
+<text x="890" y="720" class="c">risk_profile</text>
+<text x="890" y="737" class="c">customer_segment</text>
+<rect x="300" y="70" width="230" height="100" rx="6" fill="#ecfeff" stroke="#0891b2" stroke-width="1.4"/>
+<path d="M300,96 L300,76 Q300,70 306,70 L524,70 Q530,70 530,76 L530,96 Z" fill="#0891b2"/>
+<text x="310" y="88" class="tn">ai_conversations</text>
+<text x="308" y="111" class="k" fill="#b45309">PK</text>
+<text x="330" y="111" class="c" font-weight="700">id</text>
+<text x="308" y="128" class="k" fill="#1d4ed8">FK</text>
+<text x="330" y="128" class="c">user_id</text>
+<text x="330" y="145" class="c">title</text>
+<text x="330" y="162" class="c">created_at, updated_at</text>
+<rect x="30" y="70" width="230" height="134" rx="6" fill="#ecfeff" stroke="#0891b2" stroke-width="1.4"/>
+<path d="M30,96 L30,76 Q30,70 36,70 L254,70 Q260,70 260,76 L260,96 Z" fill="#0891b2"/>
+<text x="40" y="88" class="tn">ai_messages</text>
+<text x="38" y="111" class="k" fill="#b45309">PK</text>
+<text x="60" y="111" class="c" font-weight="700">id</text>
+<text x="38" y="128" class="k" fill="#1d4ed8">FK</text>
+<text x="60" y="128" class="c">conversation_id</text>
+<text x="60" y="145" class="c">role</text>
+<text x="60" y="162" class="c">content</text>
+<text x="60" y="179" class="c">tool_name</text>
+<text x="60" y="196" class="c">created_at</text>
+<rect x="300" y="300" width="230" height="151" rx="6" fill="#f1f5f9" stroke="#475569" stroke-width="1.4"/>
+<path d="M300,326 L300,306 Q300,300 306,300 L524,300 Q530,300 530,306 L530,326 Z" fill="#475569"/>
+<text x="310" y="318" class="tn">notifications</text>
+<text x="308" y="341" class="k" fill="#b45309">PK</text>
+<text x="330" y="341" class="c" font-weight="700">id</text>
+<text x="308" y="358" class="k" fill="#1d4ed8">FK</text>
+<text x="330" y="358" class="c">user_id</text>
+<text x="330" y="375" class="c">type, title</text>
+<text x="330" y="392" class="c">message</text>
+<text x="330" y="409" class="c">severity</text>
+<text x="330" y="426" class="c">is_read</text>
+<text x="330" y="443" class="c">created_at</text>
+<rect x="580" y="300" width="230" height="151" rx="6" fill="#f1f5f9" stroke="#475569" stroke-width="1.4"/>
+<path d="M580,326 L580,306 Q580,300 586,300 L804,300 Q810,300 810,306 L810,326 Z" fill="#475569"/>
+<text x="590" y="318" class="tn">audit_logs</text>
+<text x="588" y="341" class="k" fill="#b45309">PK</text>
+<text x="610" y="341" class="c" font-weight="700">id</text>
+<text x="588" y="358" class="k" fill="#1d4ed8">FK</text>
+<text x="610" y="358" class="c">user_id</text>
+<text x="610" y="375" class="c">action</text>
+<text x="610" y="392" class="c">entity_type, entity_id</text>
+<text x="610" y="409" class="c">old_value, new_value</text>
+<text x="610" y="426" class="c">ip_address, user_agent</text>
+<text x="610" y="443" class="c">created_at</text>
+<rect x="1140" y="300" width="230" height="168" rx="6" fill="#f1f5f9" stroke="#475569" stroke-width="1.4"/>
+<path d="M1140,326 L1140,306 Q1140,300 1146,300 L1364,300 Q1370,300 1370,306 L1370,326 Z" fill="#475569"/>
+<text x="1150" y="318" class="tn">security_events</text>
+<text x="1148" y="341" class="k" fill="#b45309">PK</text>
+<text x="1170" y="341" class="c" font-weight="700">id</text>
+<text x="1148" y="358" class="k" fill="#1d4ed8">FK</text>
+<text x="1170" y="358" class="c">user_id</text>
+<text x="1170" y="375" class="c">event_type</text>
+<text x="1170" y="392" class="c">ip_address, device_info</text>
+<text x="1170" y="409" class="c">location</text>
+<text x="1170" y="426" class="c">severity</text>
+<text x="1170" y="443" class="c">metadata</text>
+<text x="1170" y="460" class="c">created_at</text>
+<rect x="1420" y="70" width="230" height="134" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.4"/>
+<path d="M1420,96 L1420,76 Q1420,70 1426,70 L1644,70 Q1650,70 1650,76 L1650,96 Z" fill="#dc2626"/>
+<text x="1430" y="88" class="tn">fraud_investigations</text>
+<text x="1428" y="111" class="k" fill="#b45309">PK</text>
+<text x="1450" y="111" class="c" font-weight="700">id</text>
+<text x="1428" y="128" class="k" fill="#1d4ed8">FK</text>
+<text x="1450" y="128" class="c">alert_id</text>
+<text x="1428" y="145" class="k" fill="#1d4ed8">FK</text>
+<text x="1450" y="145" class="c">analyst_id</text>
+<text x="1450" y="162" class="c">notes</text>
+<text x="1450" y="179" class="c">action_taken</text>
+<text x="1450" y="196" class="c">started_at, completed_at</text>
+<rect x="1720" y="70" width="230" height="151" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.4"/>
+<path d="M1720,96 L1720,76 Q1720,70 1726,70 L1944,70 Q1950,70 1950,76 L1950,96 Z" fill="#dc2626"/>
+<text x="1730" y="88" class="tn">fraud_alerts</text>
+<text x="1728" y="111" class="k" fill="#b45309">PK</text>
+<text x="1750" y="111" class="c" font-weight="700">id</text>
+<text x="1728" y="128" class="k" fill="#1d4ed8">FK</text>
+<text x="1750" y="128" class="c">fraud_event_id</text>
+<text x="1728" y="145" class="k" fill="#1d4ed8">FK</text>
+<text x="1750" y="145" class="c">customer_id</text>
+<text x="1728" y="162" class="k" fill="#1d4ed8">FK</text>
+<text x="1750" y="162" class="c">assigned_to</text>
+<text x="1750" y="179" class="c">status, priority</text>
+<text x="1750" y="196" class="c">resolved_at</text>
+<text x="1750" y="213" class="c">resolution_notes</text>
+<rect x="1720" y="370" width="230" height="168" rx="6" fill="#fef2f2" stroke="#dc2626" stroke-width="1.4"/>
+<path d="M1720,396 L1720,376 Q1720,370 1726,370 L1944,370 Q1950,370 1950,376 L1950,396 Z" fill="#dc2626"/>
+<text x="1730" y="388" class="tn">fraud_events</text>
+<text x="1728" y="411" class="k" fill="#b45309">PK</text>
+<text x="1750" y="411" class="c" font-weight="700">id</text>
+<text x="1728" y="428" class="k" fill="#1d4ed8">FK</text>
+<text x="1750" y="428" class="c">customer_id</text>
+<text x="1728" y="445" class="k" fill="#1d4ed8">FK</text>
+<text x="1750" y="445" class="c">transaction_id</text>
+<text x="1750" y="462" class="c">event_type</text>
+<text x="1750" y="479" class="c">risk_score</text>
+<text x="1750" y="496" class="c">severity</text>
+<text x="1750" y="513" class="c">metadata</text>
+<text x="1750" y="530" class="c">detected_at</text>
+<rect x="440" y="560" width="230" height="168" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.4"/>
+<path d="M440,586 L440,566 Q440,560 446,560 L664,560 Q670,560 670,566 L670,586 Z" fill="#d97706"/>
+<text x="450" y="578" class="tn">customer_risk_profiles</text>
+<text x="448" y="601" class="k" fill="#b45309">PK</text>
+<text x="470" y="601" class="c" font-weight="700">id</text>
+<text x="448" y="618" class="k" fill="#1d4ed8">FK</text>
+<text x="470" y="618" class="c">customer_id (UK)</text>
+<text x="470" y="635" class="c">risk_tolerance</text>
+<text x="470" y="652" class="c">credit_score</text>
+<text x="470" y="669" class="c">fraud_risk_score</text>
+<text x="470" y="686" class="c">overall_risk_score</text>
+<text x="470" y="703" class="c">financial_health_score</text>
+<text x="470" y="720" class="c">savings_ratio, DTI ratio</text>
+<rect x="30" y="560" width="230" height="185" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.4"/>
+<path d="M30,586 L30,566 Q30,560 36,560 L254,560 Q260,560 260,566 L260,586 Z" fill="#d97706"/>
+<text x="40" y="578" class="tn">behaviour_events</text>
+<text x="38" y="601" class="k" fill="#b45309">PK</text>
+<text x="60" y="601" class="c" font-weight="700">id</text>
+<text x="38" y="618" class="k" fill="#1d4ed8">FK</text>
+<text x="60" y="618" class="c">customer_id</text>
+<text x="60" y="635" class="c">session_id</text>
+<text x="60" y="652" class="c">event_type</text>
+<text x="60" y="669" class="c">page, action</text>
+<text x="60" y="686" class="c">product_id, category</text>
+<text x="60" y="703" class="c">session_duration</text>
+<text x="60" y="720" class="c">device_type</text>
+<text x="60" y="737" class="c">timestamp</text>
+<rect x="440" y="765" width="230" height="168" rx="6" fill="#fffbeb" stroke="#d97706" stroke-width="1.4"/>
+<path d="M440,791 L440,771 Q440,765 446,765 L664,765 Q670,765 670,771 L670,791 Z" fill="#d97706"/>
+<text x="450" y="783" class="tn">recommendations</text>
+<text x="448" y="806" class="k" fill="#b45309">PK</text>
+<text x="470" y="806" class="c" font-weight="700">id</text>
+<text x="448" y="823" class="k" fill="#1d4ed8">FK</text>
+<text x="470" y="823" class="c">customer_id</text>
+<text x="470" y="840" class="c">product_type</text>
+<text x="470" y="857" class="c">product_id</text>
+<text x="470" y="874" class="c">recommendation_type</text>
+<text x="470" y="891" class="c">score</text>
+<text x="470" y="908" class="c">reason</text>
+<text x="470" y="925" class="c">status, expires_at</text>
+<rect x="860" y="900" width="230" height="168" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+<path d="M860,926 L860,906 Q860,900 866,900 L1084,900 Q1090,900 1090,906 L1090,926 Z" fill="#059669"/>
+<text x="870" y="918" class="tn">accounts</text>
+<text x="868" y="941" class="k" fill="#b45309">PK</text>
+<text x="890" y="941" class="c" font-weight="700">id</text>
+<text x="868" y="958" class="k" fill="#1d4ed8">FK</text>
+<text x="890" y="958" class="c">customer_id</text>
+<text x="868" y="975" class="k" fill="#7c3aed">UK</text>
+<text x="890" y="975" class="c">account_number</text>
+<text x="890" y="992" class="c">account_type</text>
+<text x="890" y="1009" class="c">currency</text>
+<text x="890" y="1026" class="c">balance</text>
+<text x="890" y="1043" class="c">available_balance</text>
+<text x="890" y="1060" class="c">status, opened_at</text>
+<rect x="1280" y="1160" width="230" height="202" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+<path d="M1280,1186 L1280,1166 Q1280,1160 1286,1160 L1504,1160 Q1510,1160 1510,1166 L1510,1186 Z" fill="#059669"/>
+<text x="1290" y="1178" class="tn">transactions</text>
+<text x="1288" y="1201" class="k" fill="#b45309">PK</text>
+<text x="1310" y="1201" class="c" font-weight="700">id</text>
+<text x="1288" y="1218" class="k" fill="#1d4ed8">FK</text>
+<text x="1310" y="1218" class="c">account_id</text>
+<text x="1288" y="1235" class="k" fill="#7c3aed">UK</text>
+<text x="1310" y="1235" class="c">transaction_reference</text>
+<text x="1310" y="1252" class="c">transaction_type</text>
+<text x="1310" y="1269" class="c">amount, currency</text>
+<text x="1310" y="1286" class="c">category</text>
+<text x="1310" y="1303" class="c">merchant_name</text>
+<text x="1310" y="1320" class="c">status, channel</text>
+<text x="1310" y="1337" class="c">transaction_date</text>
+<text x="1310" y="1354" class="c">is_fraud</text>
+<rect x="440" y="1160" width="230" height="151" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+<path d="M440,1186 L440,1166 Q440,1160 446,1160 L664,1160 Q670,1160 670,1166 L670,1186 Z" fill="#059669"/>
+<text x="450" y="1178" class="tn">payees</text>
+<text x="448" y="1201" class="k" fill="#b45309">PK</text>
+<text x="470" y="1201" class="c" font-weight="700">id</text>
+<text x="448" y="1218" class="k" fill="#1d4ed8">FK</text>
+<text x="470" y="1218" class="c">customer_id</text>
+<text x="470" y="1235" class="c">name</text>
+<text x="470" y="1252" class="c">account_number</text>
+<text x="470" y="1269" class="c">bank_name, ifsc_code</text>
+<text x="470" y="1286" class="c">nickname</text>
+<text x="470" y="1303" class="c">is_verified, is_active</text>
+<rect x="860" y="1250" width="230" height="185" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+<path d="M860,1276 L860,1256 Q860,1250 866,1250 L1084,1250 Q1090,1250 1090,1256 L1090,1276 Z" fill="#059669"/>
+<text x="870" y="1268" class="tn">transfers</text>
+<text x="868" y="1291" class="k" fill="#b45309">PK</text>
+<text x="890" y="1291" class="c" font-weight="700">id</text>
+<text x="868" y="1308" class="k" fill="#1d4ed8">FK</text>
+<text x="890" y="1308" class="c">customer_id</text>
+<text x="868" y="1325" class="k" fill="#1d4ed8">FK</text>
+<text x="890" y="1325" class="c">source_account_id</text>
+<text x="868" y="1342" class="k" fill="#1d4ed8">FK</text>
+<text x="890" y="1342" class="c">destination_account_id</text>
+<text x="868" y="1359" class="k" fill="#1d4ed8">FK</text>
+<text x="890" y="1359" class="c">payee_id</text>
+<text x="890" y="1376" class="c">amount, transfer_type</text>
+<text x="890" y="1393" class="c">status</text>
+<text x="868" y="1410" class="k" fill="#7c3aed">UK</text>
+<text x="890" y="1410" class="c">reference_number</text>
+<text x="890" y="1427" class="c">scheduled_at, executed_at</text>
+<rect x="30" y="1250" width="230" height="117" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+<path d="M30,1276 L30,1256 Q30,1250 36,1250 L254,1250 Q260,1250 260,1256 L260,1276 Z" fill="#059669"/>
+<text x="40" y="1268" class="tn">billers</text>
+<text x="38" y="1291" class="k" fill="#b45309">PK</text>
+<text x="60" y="1291" class="c" font-weight="700">id</text>
+<text x="60" y="1308" class="c">name</text>
+<text x="60" y="1325" class="c">category</text>
+<text x="38" y="1342" class="k" fill="#7c3aed">UK</text>
+<text x="60" y="1342" class="c">provider_code</text>
+<text x="60" y="1359" class="c">is_active</text>
+<rect x="30" y="900" width="230" height="151" rx="6" fill="#ecfdf5" stroke="#059669" stroke-width="1.4"/>
+<path d="M30,926 L30,906 Q30,900 36,900 L254,900 Q260,900 260,906 L260,926 Z" fill="#059669"/>
+<text x="40" y="918" class="tn">bill_payments</text>
+<text x="38" y="941" class="k" fill="#b45309">PK</text>
+<text x="60" y="941" class="c" font-weight="700">id</text>
+<text x="38" y="958" class="k" fill="#1d4ed8">FK</text>
+<text x="60" y="958" class="c">customer_id</text>
+<text x="38" y="975" class="k" fill="#1d4ed8">FK</text>
+<text x="60" y="975" class="c">account_id</text>
+<text x="38" y="992" class="k" fill="#1d4ed8">FK</text>
+<text x="60" y="992" class="c">biller_id</text>
+<text x="60" y="1009" class="c">amount, status</text>
+<text x="60" y="1026" class="c">due_date, paid_at</text>
+<text x="38" y="1043" class="k" fill="#7c3aed">UK</text>
+<text x="60" y="1043" class="c">reference_number</text>
+<rect x="1280" y="560" width="230" height="185" rx="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.4"/>
+<path d="M1280,586 L1280,566 Q1280,560 1286,560 L1504,560 Q1510,560 1510,566 L1510,586 Z" fill="#9333ea"/>
+<text x="1290" y="578" class="tn">loan_applications</text>
+<text x="1288" y="601" class="k" fill="#b45309">PK</text>
+<text x="1310" y="601" class="c" font-weight="700">id</text>
+<text x="1288" y="618" class="k" fill="#1d4ed8">FK</text>
+<text x="1310" y="618" class="c">customer_id</text>
+<text x="1288" y="635" class="k" fill="#1d4ed8">FK</text>
+<text x="1310" y="635" class="c">loan_product_id</text>
+<text x="1310" y="652" class="c">requested_amount</text>
+<text x="1310" y="669" class="c">tenure_months</text>
+<text x="1310" y="686" class="c">interest_rate, emi_amount</text>
+<text x="1310" y="703" class="c">eligibility_score</text>
+<text x="1310" y="720" class="c">status</text>
+<text x="1310" y="737" class="c">application_date</text>
+<rect x="1720" y="660" width="230" height="151" rx="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.4"/>
+<path d="M1720,686 L1720,666 Q1720,660 1726,660 L1944,660 Q1950,660 1950,666 L1950,686 Z" fill="#9333ea"/>
+<text x="1730" y="678" class="tn">loan_products</text>
+<text x="1728" y="701" class="k" fill="#b45309">PK</text>
+<text x="1750" y="701" class="c" font-weight="700">id</text>
+<text x="1750" y="718" class="c">name, loan_type</text>
+<text x="1750" y="735" class="c">min_amount, max_amount</text>
+<text x="1750" y="752" class="c">interest_rate</text>
+<text x="1750" y="769" class="c">min/max_tenure_months</text>
+<text x="1750" y="786" class="c">eligibility_rules</text>
+<text x="1750" y="803" class="c">is_active</text>
+<rect x="1280" y="880" width="230" height="151" rx="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.4"/>
+<path d="M1280,906 L1280,886 Q1280,880 1286,880 L1504,880 Q1510,880 1510,886 L1510,906 Z" fill="#9333ea"/>
+<text x="1290" y="898" class="tn">customer_investments</text>
+<text x="1288" y="921" class="k" fill="#b45309">PK</text>
+<text x="1310" y="921" class="c" font-weight="700">id</text>
+<text x="1288" y="938" class="k" fill="#1d4ed8">FK</text>
+<text x="1310" y="938" class="c">customer_id</text>
+<text x="1288" y="955" class="k" fill="#1d4ed8">FK</text>
+<text x="1310" y="955" class="c">investment_product_id</text>
+<text x="1310" y="972" class="c">amount_invested</text>
+<text x="1310" y="989" class="c">units, purchase_price</text>
+<text x="1310" y="1006" class="c">current_value</text>
+<text x="1310" y="1023" class="c">purchase_date, status</text>
+<rect x="1720" y="920" width="230" height="151" rx="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.4"/>
+<path d="M1720,946 L1720,926 Q1720,920 1726,920 L1944,920 Q1950,920 1950,926 L1950,946 Z" fill="#9333ea"/>
+<text x="1730" y="938" class="tn">investment_products</text>
+<text x="1728" y="961" class="k" fill="#b45309">PK</text>
+<text x="1750" y="961" class="c" font-weight="700">id</text>
+<text x="1750" y="978" class="c">name, product_type</text>
+<text x="1750" y="995" class="c">risk_level</text>
+<text x="1750" y="1012" class="c">expected_return</text>
+<text x="1750" y="1029" class="c">minimum_investment</text>
+<text x="1750" y="1046" class="c">lock_in_period</text>
+<text x="1750" y="1063" class="c">is_active</text>
+<rect x="1720" y="1180" width="230" height="151" rx="6" fill="#faf5ff" stroke="#9333ea" stroke-width="1.4"/>
+<path d="M1720,1206 L1720,1186 Q1720,1180 1726,1180 L1944,1180 Q1950,1180 1950,1186 L1950,1206 Z" fill="#9333ea"/>
+<text x="1730" y="1198" class="tn">insurance_products</text>
+<text x="1728" y="1221" class="k" fill="#b45309">PK</text>
+<text x="1750" y="1221" class="c" font-weight="700">id</text>
+<text x="1750" y="1238" class="c">name</text>
+<text x="1750" y="1255" class="c">insurance_type</text>
+<text x="1750" y="1272" class="c">premium</text>
+<text x="1750" y="1289" class="c">coverage_amount</text>
+<text x="1750" y="1306" class="c">term_years</text>
+<text x="1750" y="1323" class="c">risk_level, is_active</text>
+<rect x="30" y="1460" width="14" height="14" rx="3" fill="#eff6ff" stroke="#2563eb"/><text x="50" y="1472" font-size="12" fill="#334155">Identity</text>
+<rect x="132" y="1460" width="14" height="14" rx="3" fill="#ecfdf5" stroke="#059669"/><text x="152" y="1472" font-size="12" fill="#334155">Banking</text>
+<rect x="227" y="1460" width="14" height="14" rx="3" fill="#faf5ff" stroke="#9333ea"/><text x="247" y="1472" font-size="12" fill="#334155">Products</text>
+<rect x="329" y="1460" width="14" height="14" rx="3" fill="#fffbeb" stroke="#d97706"/><text x="349" y="1472" font-size="12" fill="#334155">Intelligence</text>
+<rect x="459" y="1460" width="14" height="14" rx="3" fill="#fef2f2" stroke="#dc2626"/><text x="479" y="1472" font-size="12" fill="#334155">Fraud</text>
+<rect x="540" y="1460" width="14" height="14" rx="3" fill="#f1f5f9" stroke="#475569"/><text x="560" y="1472" font-size="12" fill="#334155">Platform / audit</text>
+<rect x="698" y="1460" width="14" height="14" rx="3" fill="#ecfeff" stroke="#0891b2"/><text x="718" y="1472" font-size="12" fill="#334155">AI assistant</text>
+<path d="M838,1467 L878,1467" class="ln"/><path d="M870,1461 L870,1473 M865,1461 L865,1473" class="mk"/><path d="M838,1461 L850,1467 L838,1473 M854,1461 L854,1473" class="mk"/>
+<text x="888" y="1472" font-size="12" fill="#334155">many (FK side) → one (PK side)   ·   PK primary key · FK foreign key · UK unique · all ids are UUIDs · created_at / updated_at omitted where implicit</text>
+</svg>
