@@ -48,7 +48,7 @@ Engineering highlights:
 |---|---|
 | Architecture | Microservices behind an nginx API gateway: Next.js frontend, FastAPI **customer-service** and **admin-service**, shared Supabase PostgreSQL |
 | Security | bcrypt password hashing, JWT (HS256) authentication, role-based access control on every endpoint, ownership checks, audit log and security-event trail |
-| Quality | **201 automated backend tests** (all passing), **14 Playwright end-to-end journeys**, **76.8 % line coverage** (SonarQube overall coverage **70.0 %**), SonarQube quality gate **Passed** with **0 security issues** and **0.7 % duplication** |
+| Quality | **333 automated backend tests** (all passing), **14 Playwright end-to-end journeys**, **95.9 % line / 81.0 % branch coverage** (SonarQube reported 70.0 % at build #4, before the coverage-measurement fix), SonarQube quality gate **Passed** with **0 security issues** and **0.7 % duplication** |
 | CI/CD | Jenkins pipeline-as-code with 8 stages — test, static analysis, blocking quality gate, image build, health-checked deploy and database seed — fully provisioned from one `.env` file |
 | Observability | Prometheus metrics, Loki + Grafana Alloy log aggregation, 5 provisioned Grafana dashboards, 4 alert rules, structured JSON logs with request correlation |
 
@@ -339,7 +339,7 @@ Status legend: ✅ Implemented · ◐ Partially implemented / simulated in the U
 | FR-19 | Apply for a loan and track applications | UC-06 | `POST/GET /loans/applications` | ✅ |
 | FR-20 | Browse and invest in investment products (FDs, mutual funds, bonds …) | UC-07 | `GET /investments/products`, `POST /investments`, `GET /investments` | ✅ |
 | FR-21 | Browse insurance products | UC-07 | `GET /insurance/products` | ✅ |
-| FR-22 | Personalised product recommendations from behaviour and profile | UC-06, UC-07, UC-12 | `GET /recommendations` (generated from behaviour, risk and product data) | ✅ |
+| FR-22 | Personalised product recommendations | UC-12 | `GET /recommendations`, dashboard, *For you* page and AI tool; records currently seeded (automated scorer is future work) | ◐ |
 
 ### 5.4 AI banking assistant
 
@@ -380,7 +380,7 @@ Status legend: ✅ Implemented · ◐ Partially implemented / simulated in the U
 | NFR-10 | Observability | Centralised logging, error tracking, health and performance metrics | JSON logs → Alloy → Loki; Prometheus metrics; 5 Grafana dashboards; 4 alert rules; `X-Request-ID` tracing | §9 |
 | NFR-11 | Maintainability | Layered architecture, SOLID, clean code | Router → service → model layering, shared app factory, typed schemas; Ruff lint; SonarQube **Maintainability: A** | SonarQube overview (Figure 2) |
 | NFR-12 | Maintainability | Low duplication | Shared factory and helpers | SonarQube **duplication 0.7 %** on 24k lines |
-| NFR-13 | Testability | ≥ 70 % automated test coverage | 201 backend tests on in-memory SQLite, coverage enforced through the quality gate | **76.8 % line coverage**, SonarQube **70.0 %** (§7) |
+| NFR-13 | Testability | ≥ 70 % automated test coverage | 333 backend tests on in-memory SQLite, coverage enforced through the quality gate | **95.9 % line coverage** (§7) |
 | NFR-14 | Reliability | Consistent money movement | One database transaction per operation; balance and limit checks before ledger writes | Transfer, bill and investment tests |
 | NFR-15 | Usability | Responsive UI on desktop, tablet and mobile | Responsive layouts, table overflow handling, narrow-viewport checks | Playwright viewport tests |
 | NFR-16 | Portability / deployability | Repeatable automated deployment | Entire platform, observability and CI stacks start with one `docker compose up`; zero-touch CI provisioning | §8, §10 |
@@ -404,61 +404,50 @@ Status legend: ✅ Implemented · ◐ Partially implemented / simulated in the U
 
 ### 7.2 Test inventory
 
-| Suite | Tests | Suite | Tests |
+| Suite | Cases | Suite | Cases |
 |---|---|---|---|
-| `api/test_fraud_investigations.py` | 38 | `test_investments_api.py` | 5 |
-| `api/test_audit_logs.py` | 17 | `test_loans_api.py` | 4 |
-| `api/test_compliance_alerts.py` | 17 | `test_payees_api.py` | 4 |
-| `api/test_security_events.py` | 14 | `test_transfers_api.py` | 4 |
-| `api/test_analytics_behaviour.py` | 7 | `test_bills_api.py`, `test_customers_api.py`, `test_transactions_api.py`, `test_service_split.py` | 3 each |
-| `api/test_analytics_customers.py` | 5 | `intelligence/test_financial.py`, `intelligence/test_risk_profiles.py` | 3 each |
-| `api/test_analytics_overview.py` | 4 | `test_accounts_api.py`, `test_insurance_api.py`, `test_security.py` | 2 each |
-| | | `test_ai_api.py`, `test_health.py`, `test_recommendations_api.py` | 1 each |
+| `test_service_split.py` (routing) | 53 | `api/test_analytics_behaviour.py` | 12 |
+| `test_domain_rules.py` (unit) — new | 46 | `test_catalogue_and_payees.py` — new | 12 |
+| `api/test_fraud_investigations.py` | 38 | `test_service_apps.py` — new | 8 |
+| `test_ai_assistant.py` — new | 18 | `api/test_analytics_customers.py`, `test_investments_api.py` | 5 each |
+| `test_transfer_rules.py` — new | 18 | analytics overview, loans, payees, transfers | 4 each |
+| `api/test_audit_logs.py`, `api/test_compliance_alerts.py` | 17 each | financial, risk, bills, customers, transactions | 3 each |
+| `test_auth_api.py` — new | 16 | accounts, insurance, security | 2 each |
+| `api/test_security_events.py`, `test_transaction_filters.py` — new | 14 each | ai_api, health, recommendations | 1 each |
 
-146 test functions expand to **201 test cases** through parametrisation. **Result: 201 passed, 0 failed** (local run on 9 Nov 2026, and Jenkins build #4).
+**Result: 333 passed, 0 failed** (local run, 24 Nov 2026). The seven suites marked *new* add 132 cases covering authentication outcomes, every AI-assistant tool and the LLM fallback, transaction search and filters, transfer business rules, service middleware and metrics, catalogues and payee rules, and the pure loan/security engines.
 
-**Playwright journeys** (`frontend/tests/`): internal dashboard navigation without client errors; customer directory filters, pagination, sorting and detail round-trip; analytics combined filters; admin sign-in and missing-customer handling; tablet/mobile admin layouts; landing and customer dashboard responsiveness; account filters and empty states; transfer validation (funds, paise precision, review, OTP); bill shortcut; payee preview/edit/remove; statement custom period; EMI zero-interest and 3-product comparison cap; AI assistant conversation; separation of customer login, sign-up and admin login.
+**Playwright journeys** (`frontend/tests/`): internal dashboard navigation; customer directory filters, pagination, sorting and detail; analytics filters; admin sign-in; tablet/mobile admin layouts; landing and customer dashboard responsiveness; account filters; transfer validation (funds, paise, review, OTP); bill shortcut; payee edit/remove; statement period; EMI and comparison; AI assistant; separation of customer and admin login.
 
 ### 7.3 Coverage summary
 
-| Metric | Value | Source |
-|---|---|---|
-| Statements | **3,300** | coverage.py (`backend/app`) |
-| Statements covered | **2,535** | |
-| **Line coverage** | **76.8 %** | `coverage.xml` |
-| Branches | 604 (225 covered) | |
-| Branch coverage | 37.3 % | |
-| Combined line + branch (coverage.py total) | **71 %** | `pytest --cov` terminal report |
-| **SonarQube overall coverage** | **70.0 %** on 3.3k lines to cover | SonarQube project `credora` (Figure 2) |
-| Target (use-case document) | ≥ 70 % | ✅ met |
+| Metric | Build #4 | Now | Target |
+|---|---|---|---|
+| Test cases | 201 | **333** | — |
+| Statements covered | 2,535 / 3,300 | **3,166 / 3,300** | — |
+| **Line coverage** | 76.8 % | **95.9 %** | ≥ 70 % |
+| Branch coverage | 37.3 % | **81.0 %** | — |
+| Combined (coverage.py total) | 71 % | **94 %** | ≥ 70 % |
+| SonarQube overall coverage | 70.0 % | updated on the next pipeline run | ≥ 80 % on new code |
 
-SonarQube reports a slightly lower number than line coverage because it combines **line and condition (branch) coverage** into one figure. Coverage is measured for the backend application code (`backend/app`); scripts, tests and the frontend (which is covered by Playwright end-to-end tests instead of unit-test coverage) are excluded through `sonar.coverage.exclusions`.
+> **Measurement fix.** SQLAlchemy's async engine runs database calls on greenlets. Without `concurrency = greenlet, thread` in `backend/.coveragerc`, coverage.py stopped tracing after the first database `await`, so code the tests executed was reported as uncovered. With the setting, the original 201 tests already measure 85 %; the new tests raise it to 94 %. The CI script reads `.coveragerc`, so Jenkins and SonarQube pick this up automatically.
 
 ### 7.4 Coverage by layer
 
 | Package | Lines covered | Line coverage | Branch coverage |
 |---|---|---|---|
-| `models/` | 317 / 317 | **100.0 %** | — |
-| `schemas/` | 543 / 556 | **97.7 %** | 56.7 % |
-| entry points (`main`, `customer_main`, `admin_main`) | 40 / 40 | **100.0 %** | — |
-| `core/` | 187 / 232 | **80.6 %** | 47.1 % |
-| `api/` | 359 / 453 | **79.2 %** | 7.5 % |
-| `intelligence/analytics/` | 425 / 645 | **65.9 %** | 30.4 % |
-| `services/` | 664 / 1,057 | **62.8 %** | 40.6 % |
-| **Total** | **2,535 / 3,300** | **76.8 %** | **37.3 %** |
+| `models/` | 317 / 317 | 100.0 % | — |
+| entry points | 40 / 40 | 100.0 % | — |
+| `schemas/` | 552 / 556 | 99.3 % | 86.7 % |
+| `api/` | 443 / 453 | 97.8 % | 82.5 % |
+| `core/` | 227 / 232 | 97.8 % | 91.2 % |
+| `services/` | 1,012 / 1,057 | 95.7 % | 85.9 % |
+| `intelligence/analytics/` | 575 / 645 | 89.1 % | 63.8 % |
+| **Total** | **3,166 / 3,300** | **95.9 %** | **81.0 %** |
 
-### 7.5 Coverage by module (highlights)
+### 7.5 Remaining gaps
 
-| Fully covered (100 %) | Well covered (≥ 80 %) | Below target (< 60 %) |
-|---|---|---|
-| All 8 model modules | `intelligence/analytics/financial.py` 93 % | `api/ai.py` 29 % |
-| 13 of 16 schema modules | `api/payees.py` 95 % | `intelligence/analytics/service.py` 32 % |
-| `api/accounts.py`, `bills.py`, `compliance.py`, `customers.py`, `insurance.py`, `investments.py`, `loans.py`, `recommendations.py`, `router.py`, `transactions.py`, `transfers.py` | `api/fraud.py` 89 %, `api/me.py` 90 % | `services/transaction_service.py` 26 % |
-| `core/config.py`, `core/exceptions.py` | `intelligence/analytics/risk.py` 87 % | `services/auth_service.py` 27 % |
-| `customer_main.py`, `admin_main.py`, `main.py` | `core/logging.py` 88 %, `core/database.py` 92 % | `services/security_service.py` 47 %, `payment_service.py` 48 % |
-| | `services/account_service.py` 91 % | `core/app_factory.py` 54 %, `services/investment_service.py` 51 % |
-
-**Improvement plan.** The largest uncovered areas are the AI assistant's per-intent branches (the Groq call path is not exercised in tests), the behaviour-analytics aggregation service, and failure branches of the payment, auth and security services. Planned additions: mocked Groq responses for each tool intent, parametrised analytics-filter tests, and negative-path tests for transfer limits and login lock-out. These would raise branch coverage, which is currently the weakest metric.
+The largest uncovered block is a PostgreSQL-only aggregation path in `intelligence/analytics/service.py` (about 60 lines using `array_agg`) that cannot run on the SQLite test database; it can be exercised by pointing `TEST_DATABASE_URL` at a Postgres instance. The other uncovered lines are placeholder admin endpoints and display fallbacks.
 
 ### 7.6 SonarQube quality metrics
 
@@ -680,7 +669,7 @@ PBIP/
 │   ├── alembic/                 # 8 database migrations
 │   ├── data/generators/         # synthetic customer, transaction, behaviour and fraud data
 │   ├── scripts/seed.py          # demo seed
-│   └── tests/                   # 201 pytest cases
+│   └── tests/                   # 333 pytest cases
 ├── observability/               # Prometheus, Loki, Alloy, Grafana (dashboards as code)
 ├── ci/                          # Jenkins image + JCasC, sonar-init, CI scripts, CI compose
 └── docs/                        # architecture, API, database and this document
@@ -692,7 +681,7 @@ PBIP/
 
 | Area | Current state | Planned improvement |
 |---|---|---|
-| Branch coverage | 37.3 % (line coverage 76.8 %) | Mocked LLM tests per AI intent, negative-path tests for payments, auth and analytics filters |
+| Recommendation engine | Recommendation records are seeded; storage, API, UI and AI integration are complete | Batch scorer over behaviour, risk and product affinity |
 | SonarQube reliability | 33 open reliability issues (rating E) and 1 hotspot on overall code | Triage and fix the high-severity findings; review the hotspot; the gate already blocks any new ones |
 | Latency | p50 mostly < 500 ms, but p95/p99 spikes up to ~2.5 s on customer-service (Figure 6) — attributable to remote database round-trips through the Supabase pooler and LLM calls | Response caching for catalogues and summaries, query profiling, a dedicated timeout budget for AI calls |
 | MFA | OTP step simulated in the UI | Integrate an OTP/TOTP provider and enforce MFA at login |
